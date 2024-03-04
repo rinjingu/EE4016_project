@@ -45,7 +45,10 @@ for subcat in cat_name:
             item['price'] = ["-1", "-1"] # Set to [0, 0] if price is not present or empty
 
         # remove unwanted characters from brand
-        item['brand'] = item['brand'].replace("by", "").replace("\n", "").replace(" ","").replace(".","").replace("*","").replace("(),","").replace("()","")
+        if 'brand' in item:
+            item['brand'] = item['brand'].replace("by", "").replace("\n", "").replace(" ","").replace(".","").replace("*","").replace("(),","").replace("()","")
+        else:
+            item['brand'] = ''
         if (item['brand'] == '-') or (item['brand'] == "--") or (item['brand'] == '&'):
             item['brand'] = ''
 
@@ -66,6 +69,7 @@ for subcat in cat_name:
             'brand': item.get('brand', None),
             'category': item.get('category', None)
         })
+        
     del meta
 
     processed_review = []
