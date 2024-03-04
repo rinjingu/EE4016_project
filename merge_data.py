@@ -9,6 +9,7 @@ import time
 cat_name = st.CAT_NAME
 
 raw_data_path = './data/raw_data'
+INTERVAL = 1 # print progress every 1 second
 
 # start tracking memory usage
 tracemalloc.start()
@@ -77,9 +78,9 @@ for subcat in cat_name:
 
             i += 1
             # if one second has passed, print the progress
-            if time.time() - __t > 1 or i == __len:
+            if time.time() - __t > INTERVAL or i == __len:
                 __t = time.time()
-                print('Processed {}/{} ({.2f}%) meta data'.format(i, __len, i/ __len * 100))
+                print('Processed {}/{} ({:.2f}%) meta data'.format(i, __len, i/ __len * 100))
 
     with open('./data/l1_data/meta_{}.json'.format(subcat), 'w') as f:
         # clear all the data in the file
@@ -90,7 +91,7 @@ for subcat in cat_name:
     print('Finished processing meta data for subcategory l1: {}'.format(subcat))
     print('Time taken: {:.3f}s'.format(time.time() - __r_t))
     __r_t = time.time()
-
+    del processed_meta
     
     processed_review = []
     with open(review_path) as f:
@@ -111,11 +112,10 @@ for subcat in cat_name:
 
             i += 1
             # if one second has passed, print the progress
-            if time.time() - __t > 1 or i == __len:
+            if time.time() - __t > INTERVAL or i == __len:
                 __t = time.time()
-                print('Processed {}/{} review data'.format(i, __len))
+                print('Processed {}/{} ({:.2f}%) review data'.format(i, __len, i/ __len * 100))
         
-    
     
 
     # show current memory usage of processed meta and review in mb, only show items that use more than 1 mb
@@ -137,7 +137,7 @@ for subcat in cat_name:
     print('Time taken: {:.3f}s'.format(time.time() - __r_t))
     print('-'*64)
     print('Finished processing subcategory l1: {}'.format(subcat))
-    
+    del processed_review
     __r_t = time.time()
     print('-'*64)
     # do l2 processing, merge meta and review data
@@ -145,49 +145,61 @@ for subcat in cat_name:
 
     # create a new data
     merged = []
-    for item in processed_meta:
-        merged.append({
-            'asin': item['asin'],
-            'price': item['price'],
-            'also_view': item['also_view'],
-            'also_buy': item['also_buy'],
-            'rank': item['rank'],
-            'brand': item['brand'],
-            'category': item['category'],
-            'reviews': []
-        })
+    merged_asin = {}
+    with open('./data/l1_data/meta_{}.json'.format(subcat)) as f:
+        i = 0
+        __len = len(f.readlines())
+        __t = time.time()
+        f.seek(0)
+        # read each line of the file, and convert the json object to a dictionary
+        for line in f:
+            item = json.loads(line)
+            
+            
+            merged.append({
+                'asin': item['asin'],
+                'price': item['price'],
+                'also_view': item['also_view'],
+                'also_buy': item['also_buy'],
+                'rank': item['rank'],
+                'brand': item['brand'],
+                'category': item['category'],
+                'reviews': []
+            })
+            merged_asin[item['asin']] = i
+            i += 1
+            # if one second has passed, print the progress
+            if time.time() - __t > INTERVAL or i == __len:
+                __t = time.time()
+                print('Processed {}/{} ({:.2f}%)  l1 meta data'.format(i, __len, i/ __len * 100))
     
-        
-    del processed_meta
 
-    # use the processed meta and review data to reduce memory usage
-    # merged_asin = [item['asin'] for item in merged]
-    merged_asin = {item['asin']: i for i, item in enumerate(merged)}
-    i = 0
-    __len = len(processed_review)
-    __t = time.time()
-    for item in processed_review:
-        asin = item['asin']
-        # find the corresponding meta data
-        # get the index of the asin in the merged data
-        if asin not in merged_asin:
-            continue
-        index = merged_asin[asin]
-        # append the review to the merged data
-        merged[index]['reviews'].append({
-            'reviewerID': item['reviewerID'],
-            'vote': item['vote'],
-            'overall': item['overall'],
-            'unixReviewTime': item['unixReviewTime']
-        })
-        
-        i += 1
-        # if one second has passed, print the progress
-        if time.time() - __t > 1 or i == __len:
-            __t = time.time()
-            print('Merged {}/{} review data'.format(i, __len))
-
-    del processed_review
+    with open('./data/l1_data/review_{}.json'.format(subcat)) as f:
+        i = 0
+        __len = len(f.readlines())
+        __t = time.time()
+        f.seek(0)
+        for line in f:
+            __temp = json.loads(line)
+            asin = __temp['asin']
+            # find the corresponding meta data
+            # get the index of the asin in the merged data
+            if asin not in merged_asin:
+                continue
+            index = merged_asin[asin]
+            # append the review to the merged data
+            merged[index]['reviews'].append({
+                'reviewerID': __temp['reviewerID'],
+                'vote': __temp['vote'],
+                'overall': __temp['overall'],
+                'unixReviewTime': __temp['unixReviewTime']
+            })
+            
+            i += 1
+            # if one second has passed, print the progress
+            if time.time() - __t > INTERVAL or i == __len:
+                __t = time.time()
+                print('Merged {}/{} ({:.2f}%) review data'.format(i, __len, i/ __len * 100))
 
     print('Finished merging review data for subcategory l2: {}'.format(subcat))
     print('Time taken: {:.3f}s'.format(time.time() - __r_t))

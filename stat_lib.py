@@ -2,9 +2,9 @@ import math
 import json
 
 CAT_NAME = [
-    "Books"
+    # "Books"
 
-    # 'Gift_Cards',
+    'Gift_Cards'
     # "All_Beauty",
     # "Appliances",
     # "Digital_Music",
