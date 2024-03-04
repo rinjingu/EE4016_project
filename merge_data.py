@@ -25,11 +25,6 @@ for subcat in cat_name:
         # read each line of the file, and convert the json object to a dictionary
         meta = [json.loads(line) for line in f]
 
-    with open(review_path) as f:
-        review = [json.loads(line) for line in f]
-
-    
-
     # extract useful columns in files
     processed_meta = []
     for item in meta:
@@ -71,17 +66,20 @@ for subcat in cat_name:
             'brand': item.get('brand', None),
             'category': item.get('category', None)
         })
+    del meta
 
     processed_review = []
-    for item in review:
-        processed_review.append({
-            'reviewerID': item['reviewerID'],
-            'asin': item['asin'],
-            'vote': item.get('vote', None),
-            'overall': item['overall'],
-            'unixReviewTime': item['unixReviewTime']
-        })
-    
+    with open(review_path) as f:
+        # review = [json.loads(line) for line in f]
+        for line in f:
+            __temp = json.loads(line)
+            processed_review.append({
+                'reviewerID': __temp['reviewerID'],
+                'asin': __temp['asin'],
+                'vote': __temp.get('vote', None),
+                'overall': __temp['overall'],
+                'unixReviewTime': __temp['unixReviewTime']
+            })
     
 
     # show current memory usage of processed meta and review in mb, only show items that use more than 1 mb
