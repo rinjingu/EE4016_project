@@ -28,6 +28,7 @@ for subcat in cat_name:
         i = 0
         __len = len(f.readlines())
         __t = time.time()
+        f.seek(0)
         # read each line of the file, and convert the json object to a dictionary
         for line in f:
             item = json.loads(line)
@@ -78,7 +79,7 @@ for subcat in cat_name:
             # if one second has passed, print the progress
             if time.time() - __t > 1:
                 __t = time.time()
-                print('Processed {}/{} meta data'.format(i, __len))
+                print('Processed {}/{} ({.2f}%) meta data'.format(i, __len, i/ __len * 100))
 
     with open('./data/l1_data/meta_{}.json'.format(subcat), 'w') as f:
         # clear all the data in the file
@@ -97,6 +98,7 @@ for subcat in cat_name:
         i = 0
         __len = len(f.readlines())
         __t = time.time()
+        f.seek(0)
         for line in f:
             __temp = json.loads(line)
             processed_review.append({

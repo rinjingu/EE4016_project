@@ -2,12 +2,14 @@ import math
 import json
 
 CAT_NAME = [
-    'Gift_Cards',
-    "All_Beauty",
-    "Appliances",
-    "Digital_Music",
-    "CDs_and_Vinyl",
-    "Automotive"
+    "Books"
+
+    # 'Gift_Cards',
+    # "All_Beauty",
+    # "Appliances",
+    # "Digital_Music",
+    # "CDs_and_Vinyl",
+    # "Automotive"
 
 ]
 
