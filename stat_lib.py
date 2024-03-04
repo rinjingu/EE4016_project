@@ -92,7 +92,8 @@ def map_relation(items, significantness=1, buy_effect=1, view_effect=1):
             else:
                 map_[a_item] = view_effect
 
-        
+        # add the relation to the dictionary
+        relation[asin] = map_ 
 
 
 
