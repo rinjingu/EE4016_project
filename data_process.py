@@ -55,7 +55,7 @@ for subcat in cat_name:
             if type(core[i]['rank']) == list:
                 core[i]['rank'] = core[i]['rank'][0]
             # extract the number from the string, the number is the first word in the string
-            if core[i]['rank'] != '':
+            if core[i]['rank'] != '' and core[i]['rank'] is not None:
                 core[i]['rank'] = core[i]['rank'].split()[0]
                 # remove non-number characters from the rank
                 core[i]['rank'] = int(
