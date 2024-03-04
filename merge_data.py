@@ -26,67 +26,67 @@ for subcat in cat_name:
     processed_meta = []
     # each line of the file is a json object
     with open(meta_path) as f:
-        i = 0
-        __len = len(f.readlines())
-        __t = time.time()
-        f.seek(0)
-        # read each line of the file, and convert the json object to a dictionary
-        for line in f:
-            item = json.loads(line)
+        with open('./data/l1_data/meta_{}.json'.format(subcat), 'w') as d:
+            i = 0
+            __len = len(f.readlines())
+            __t = time.time()
+            f.seek(0)
+            # read each line of the file, and convert the json object to a dictionary
+            for line in f:
+                item = json.loads(line)
 
-            # if price is not in "$" format, set it to None, skip the checking if price is ''
-            if 'price' in item and item['price'] != '' and item['price'].startswith("$"):
-                # Remove symbols
-                price = re.sub(r"[^\d.]", "", item['price'].replace("$", "").replace(",", "").replace(" ",""))
-                if "-" in price:
-                    # It's a range, split and process
-                    lower, upper = map(float, price.split("-"))
-                    mean = (lower + upper) / 2
-                    diff = upper - mean
-                    item['price'] = [str(mean), str(diff)]
+                # if price is not in "$" format, set it to None, skip the checking if price is ''
+                if 'price' in item and item['price'] != '' and item['price'].startswith("$"):
+                    # Remove symbols
+                    price = re.sub(r"[^\d.]", "", item['price'].replace("$", "").replace(",", "").replace(" ",""))
+                    if "-" in price:
+                        # It's a range, split and process
+                        lower, upper = map(float, price.split("-"))
+                        mean = (lower + upper) / 2
+                        diff = upper - mean
+                        item['price'] = [str(mean), str(diff)]
+                    else:
+                        # It's an actual amount
+                        item['price'] = [price, '0']
                 else:
-                    # It's an actual amount
-                    item['price'] = [price, '0']
-            else:
-                item['price'] = ["-1", "-1"] # Set to [0, 0] if price is not present or empty
+                    item['price'] = ["-1", "-1"] # Set to [0, 0] if price is not present or empty
 
-            # remove unwanted characters from brand
-            if 'brand' in item:
-                item['brand'] = item['brand'].replace("by", "").replace("\n", "").replace(" ","").replace(".","").replace("*","").replace("(),","").replace("()","")
-            else:
-                item['brand'] = ''
-            if (item['brand'] == '-') or (item['brand'] == "--") or (item['brand'] == '&'):
-                item['brand'] = ''
+                # remove unwanted characters from brand
+                if 'brand' in item:
+                    item['brand'] = item['brand'].replace("by", "").replace("\n", "").replace(" ","").replace(".","").replace("*","").replace("(),","").replace("()","")
+                else:
+                    item['brand'] = ''
+                if (item['brand'] == '-') or (item['brand'] == "--") or (item['brand'] == '&'):
+                    item['brand'] = ''
 
-            # only get the first 3 items in category
-            if 'category' in item:
-                item['category'] = item['category'][:2]
-                # Check if "</span></span></span>" exists in category and remove it
-                item['category'] = [category.replace("</span></span></span>", "") for category in item['category']]
-                # Remove empty elements from the first 3 elements in 'category'
-                item['category'] = list(filter(None, item['category']))
-            
-            processed_meta.append({
-                'asin': item['asin'],
-                'price': item.get('price', None),
-                'also_view': item.get('also_view', None),
-                'also_buy': item.get('also_buy', None),
-                'rank': item.get('rank', None),
-                'brand': item.get('brand', None),
-                'category': item.get('category', None)
-            })
+                # only get the first 3 items in category
+                if 'category' in item:
+                    item['category'] = item['category'][:2]
+                    # Check if "</span></span></span>" exists in category and remove it
+                    item['category'] = [category.replace("</span></span></span>", "") for category in item['category']]
+                    # Remove empty elements from the first 3 elements in 'category'
+                    item['category'] = list(filter(None, item['category']))
+                
+                __temp = {
+                    'asin': item['asin'],
+                    'price': item.get('price', None),
+                    'also_view': item.get('also_view', None),
+                    'also_buy': item.get('also_buy', None),
+                    'rank': item.get('rank', None),
+                    'brand': item.get('brand', None),
+                    'category': item.get('category', None)
+                }
 
-            i += 1
-            # if one second has passed, print the progress
-            if time.time() - __t > INTERVAL or i == __len:
-                __t = time.time()
-                print('Processed {}/{} ({:.2f}%) meta data'.format(i, __len, i/ __len * 100))
+                
+                d.write(json.dumps(__temp) + '\n')
+                del __temp
+                i += 1
+                # if one second has passed, print the progress
+                if time.time() - __t > INTERVAL or i == __len:
+                    __t = time.time()
+                    print('Processed {}/{} ({:.2f}%) meta data'.format(i, __len, i/ __len * 100))
 
-    with open('./data/l1_data/meta_{}.json'.format(subcat), 'w') as f:
-        # clear all the data in the file
-        f.seek(0)
-        for item in processed_meta:
-            f.write(json.dumps(item) + '\n')
+    
     
     print('Finished processing meta data for subcategory l1: {}'.format(subcat))
     print('Time taken: {:.3f}s'.format(time.time() - __r_t))
@@ -95,26 +95,29 @@ for subcat in cat_name:
     
     processed_review = []
     with open(review_path) as f:
-        # review = [json.loads(line) for line in f]
-        i = 0
-        __len = len(f.readlines())
-        __t = time.time()
-        f.seek(0)
-        for line in f:
-            __temp = json.loads(line)
-            processed_review.append({
-                'reviewerID': __temp['reviewerID'],
-                'asin': __temp['asin'],
-                'vote': __temp.get('vote', None),
-                'overall': __temp['overall'],
-                'unixReviewTime': __temp['unixReviewTime']
-            })
+        with open('./data/l1_data/review_{}.json'.format(subcat), 'w') as d:
+            # review = [json.loads(line) for line in f]
+            i = 0
+            __len = len(f.readlines())
+            __t = time.time()
+            f.seek(0)
+            for line in f:
+                item = json.loads(line)
+                __temp = {
+                    'reviewerID': item['reviewerID'],
+                    'asin': item['asin'],
+                    'vote': item.get('vote', None),
+                    'overall': item['overall'],
+                    'unixReviewTime': item['unixReviewTime']
+                }
 
-            i += 1
-            # if one second has passed, print the progress
-            if time.time() - __t > INTERVAL or i == __len:
-                __t = time.time()
-                print('Processed {}/{} ({:.2f}%) review data'.format(i, __len, i/ __len * 100))
+                d.write(json.dumps(__temp) + '\n')    
+                del __temp
+                i += 1
+                # if one second has passed, print the progress
+                if time.time() - __t > INTERVAL or i == __len:
+                    __t = time.time()
+                    print('Processed {}/{} ({:.2f}%) review data'.format(i, __len, i/ __len * 100))
         
     
 
@@ -128,11 +131,8 @@ for subcat in cat_name:
     # save to json, don't compress
 
     
-    with open('./data/l1_data/review_{}.json'.format(subcat), 'w') as f:
-        # clear all the data in the file
-        f.seek(0)
-        for item in processed_review:
-            f.write(json.dumps(item) + '\n')
+    
+            
     print('Finished processing review data for subcategory l1: {}'.format(subcat))
     print('Time taken: {:.3f}s'.format(time.time() - __r_t))
     print('-'*64)
