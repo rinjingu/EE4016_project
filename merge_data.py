@@ -77,7 +77,7 @@ for subcat in cat_name:
 
             i += 1
             # if one second has passed, print the progress
-            if time.time() - __t > 1:
+            if time.time() - __t > 1 or i == __len:
                 __t = time.time()
                 print('Processed {}/{} ({.2f}%) meta data'.format(i, __len, i/ __len * 100))
 
@@ -111,7 +111,7 @@ for subcat in cat_name:
 
             i += 1
             # if one second has passed, print the progress
-            if time.time() - __t > 1:
+            if time.time() - __t > 1 or i == __len:
                 __t = time.time()
                 print('Processed {}/{} review data'.format(i, __len))
         
@@ -183,7 +183,7 @@ for subcat in cat_name:
         
         i += 1
         # if one second has passed, print the progress
-        if time.time() - __t > 1:
+        if time.time() - __t > 1 or i == __len:
             __t = time.time()
             print('Merged {}/{} review data'.format(i, __len))
 
