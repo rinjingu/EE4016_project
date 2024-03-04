@@ -2,7 +2,13 @@ import math
 import json
 
 CAT_NAME = [
-    'Gift_Cards'
+    'Gift_Cards',
+    "All_Beauty",
+    "Appliances",
+    "Digital_Music",
+    "CDs_and_Vinyl",
+    "Automotive"
+
 ]
 
 def open_file(file_name):
@@ -91,4 +97,3 @@ def map_relation(items, significantness=1, buy_effect=1, view_effect=1):
 
 
     return relation
-
