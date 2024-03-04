@@ -100,10 +100,6 @@ for subcat in cat_name:
 
     print('Finished processing subcategory l1: {}'.format(subcat))
 
-    # clean up memory
-    del meta
-    del review
-
     # do l2 processing, merge meta and review data
     print('Processing subcategory l2: {}'.format(subcat))
 
