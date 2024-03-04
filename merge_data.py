@@ -34,14 +34,8 @@ for subcat in cat_name:
     processed_meta = []
     for item in meta:
         # if price is not in "$" format, set it to None, skip the checking if price is ''
-        if 'price' in item and item['price'] != '':
-
-            # Check if the price does not start with "$"
-            if not item['price'].startswith("$"):
-                item['price'] = ["-1", "-1"] # Set to ["-1", "-1"] if it doesn't start with "$"
-                continue # Skip the rest of the loop for this item
-
-            # Remove the "$" symbol
+        if 'price' in item and item['price'] != '' and item['price'].startswith("$"):
+            # Remove symbols
             price = re.sub(r"[^\d.]", "", item['price'].replace("$", "").replace(",", "").replace(" ",""))
             if "-" in price:
                 # It's a range, split and process
@@ -55,14 +49,14 @@ for subcat in cat_name:
         else:
             item['price'] = ["-1", "-1"] # Set to [0, 0] if price is not present or empty
 
-        # if brand name contain "by\n    \n    ", remove it
+        # remove unwanted characters from brand
         item['brand'] = item['brand'].replace("by", "").replace("\n", "").replace(" ","").replace(".","").replace("*","").replace("(),","").replace("()","")
         if (item['brand'] == '-') or (item['brand'] == "--") or (item['brand'] == '&'):
             item['brand'] = ''
 
         # only get the first 3 items in category
         if 'category' in item:
-            item['category'] = item['category'][:3]
+            item['category'] = item['category'][:2]
             # Check if "</span></span></span>" exists in category and remove it
             item['category'] = [category.replace("</span></span></span>", "") for category in item['category']]
             # Remove empty elements from the first 3 elements in 'category'

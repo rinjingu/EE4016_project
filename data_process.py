@@ -71,13 +71,6 @@ for subcat in cat_name:
             else:
                 core[i]['category'] = subcats[core[i]['category']]
 
-            # replace price with a number, if the price is '', set it to -1
-            if core[i]['price'] == '':
-                core[i]['price'] = -1
-            else:
-                core[i]['price'] = float(
-                    core[i]['price'].replace('$', '').replace(',', ''))
-
             # limit the digit of the average rating to 2
             if core[i]['avg_rating'] is None or core[i]['avg_rating'] == '':
                 core[i]['avg_rating'] = 0
