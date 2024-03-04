@@ -207,12 +207,26 @@ for subcat in cat_name:
     __r_t = time.time()
 
     # calculate the average rating for each product
+    __len = len(merged)
+    i = 0
+    __t = time.time()
     for item in merged:
         reviews = item['reviews']
         if len(reviews) == 0:
             item['avg_rating'] = None
         else:
             item['avg_rating'] = sum([r['overall'] for r in reviews]) / len(reviews)
+
+        i += 1
+        # if one second has passed, print the progress
+        if time.time() - __t > INTERVAL or i == __len:
+            __t = time.time()
+            print('Processed {}/{} ({:.2f}%) average rating'.format(i, __len, i/ __len * 100))
+        
+    print('Finished calculating average rating for subcategory l2: {}'.format(subcat))
+    print('Time taken: {:.3f}s'.format(time.time() - __r_t))
+    print('-'*64)
+    __r_t = time.time()
 
         
     core = []
