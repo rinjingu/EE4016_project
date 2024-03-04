@@ -1,7 +1,9 @@
 import os
 import json
+import re
 import tracemalloc
 import stat_lib as st
+# from ./data/raw_data import files 
 
 cat_name = st.CAT_NAME
 
@@ -33,11 +35,38 @@ for subcat in cat_name:
     for item in meta:
         # if price is not in "$" format, set it to None, skip the checking if price is ''
         if 'price' in item and item['price'] != '':
-            item['price'] = '' if item['price'][0] != '$' else item['price'][1:]
+
+            # Check if the price does not start with "$"
+            if not item['price'].startswith("$"):
+                item['price'] = ["-1", "-1"] # Set to ["-1", "-1"] if it doesn't start with "$"
+                continue # Skip the rest of the loop for this item
+
+            # Remove the "$" symbol
+            price = re.sub(r"[^\d.]", "", item['price'].replace("$", "").replace(",", "").replace(" ",""))
+            if "-" in price:
+                # It's a range, split and process
+                lower, upper = map(float, price.split("-"))
+                mean = (lower + upper) / 2
+                diff = upper - mean
+                item['price'] = [str(mean), str(diff)]
+            else:
+                # It's an actual amount
+                item['price'] = [price, '0']
+        else:
+            item['price'] = ["-1", "-1"] # Set to [0, 0] if price is not present or empty
+
+        # if brand name contain "by\n    \n    ", remove it
+        item['brand'] = item['brand'].replace("by", "").replace("\n", "").replace(" ","").replace(".","").replace("*","").replace("(),","").replace("()","")
+        if (item['brand'] == '-') or (item['brand'] == "--") or (item['brand'] == '&'):
+            item['brand'] = ''
 
         # only get the first 3 items in category
         if 'category' in item:
             item['category'] = item['category'][:3]
+            # Check if "</span></span></span>" exists in category and remove it
+            item['category'] = [category.replace("</span></span></span>", "") for category in item['category']]
+            # Remove empty elements from the first 3 elements in 'category'
+            item['category'] = list(filter(None, item['category']))
         
         processed_meta.append({
             'asin': item['asin'],
@@ -104,14 +133,15 @@ for subcat in cat_name:
     del processed_meta
 
     # use the processed meta and review data to reduce memory usage
-    merged_asin = [item['asin'] for item in merged]
+    # merged_asin = [item['asin'] for item in merged]
+    merged_asin = {item['asin']: i for i, item in enumerate(merged)}
     for item in processed_review:
         asin = item['asin']
         # find the corresponding meta data
         # get the index of the asin in the merged data
         if asin not in merged_asin:
             continue
-        index = merged_asin.index(asin)
+        index = merged_asin[asin]
         # append the review to the merged data
         merged[index]['reviews'].append({
             'reviewerID': item['reviewerID'],
