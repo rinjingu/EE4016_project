@@ -20,12 +20,8 @@ for subcat in cat_name:
         core_path = os.path.join(
             l2_data_path, 'core_{}.json'.format(subcat))
 
-        data = st.open_file(merged_path)
+        # data = st.open_file(merged_path)
         core = st.open_file(core_path)
-
-        # raise error if length of data and core is not equal
-        if len(data) != len(core):
-            raise ValueError('Length of data and core is not equal')
 
         brands = st.label_string(core, 'brand')
         subcats = st.label_category(core)
@@ -38,45 +34,48 @@ for subcat in cat_name:
         with open(os.path.join(l3_data_path, 'subcat_label_{}.yaml'.format(subcat)), 'w') as f:
             for k, v in subcats.items():
                 f.write('{}: {}\n'.format(k, v))
+        with open(merged_path) as f:
+            for i in range(len(core)):
+                # calculate the review activeness of each product
+                
+                f.seek(i)
+                data = json.loads(f.readline())
+                core[i]['activeness'] = st.review_activeness(data['reviews'])
+                # round the activeness to 4 decimal places
+                core[i]['activeness'] = round(core[i]['activeness'], 4)
 
-        for i in range(len(core)):
-            # calculate the review activeness of each product
-            core[i]['activeness'] = st.review_activeness(data[i]['reviews'])
-            # round the activeness to 4 decimal places
-            core[i]['activeness'] = round(core[i]['activeness'], 4)
+                # convert the brand to a label of integer
+                core[i]['brand'] = brands[core[i]['brand']]
 
-            # convert the brand to a label of integer
-            core[i]['brand'] = brands[core[i]['brand']]
+                # process the rank of the product
+                # if the rank is a array, take the first element
+                if core[i]['rank'] == []:
+                    core[i]['rank'] = ''
+                if type(core[i]['rank']) == list:
+                    core[i]['rank'] = core[i]['rank'][0]
+                # extract the number from the string, the number is the first word in the string
+                if core[i]['rank'] != '' and core[i]['rank'] is not None:
+                    core[i]['rank'] = core[i]['rank'].split()[0]
+                    # remove non-number characters from the rank
+                    core[i]['rank'] = int(
+                        ''.join(filter(str.isdigit, core[i]['rank'])))
+                else:
+                    core[i]['rank'] = -1
 
-            # process the rank of the product
-            # if the rank is a array, take the first element
-            if core[i]['rank'] == []:
-                core[i]['rank'] = ''
-            if type(core[i]['rank']) == list:
-                core[i]['rank'] = core[i]['rank'][0]
-            # extract the number from the string, the number is the first word in the string
-            if core[i]['rank'] != '' and core[i]['rank'] is not None:
-                core[i]['rank'] = core[i]['rank'].split()[0]
-                # remove non-number characters from the rank
-                core[i]['rank'] = int(
-                    ''.join(filter(str.isdigit, core[i]['rank'])))
-            else:
-                core[i]['rank'] = -1
+                # process the category of the product
+                # if the category is a list, process each element in the list
+                if type(core[i]['category']) == list:
+                    for j in range(len(core[i]['category'])):
+                        core[i]['category'][j] = subcats[core[i]['category'][j]]
+                else:
+                    core[i]['category'] = subcats[core[i]['category']]
 
-            # process the category of the product
-            # if the category is a list, process each element in the list
-            if type(core[i]['category']) == list:
-                for j in range(len(core[i]['category'])):
-                    core[i]['category'][j] = subcats[core[i]['category'][j]]
-            else:
-                core[i]['category'] = subcats[core[i]['category']]
+                # limit the digit of the average rating to 2
+                if core[i]['avg_rating'] is None or core[i]['avg_rating'] == '':
+                    core[i]['avg_rating'] = 0
+                core[i]['avg_rating'] = round(core[i]['avg_rating'], 2)
 
-            # limit the digit of the average rating to 2
-            if core[i]['avg_rating'] is None or core[i]['avg_rating'] == '':
-                core[i]['avg_rating'] = 0
-            core[i]['avg_rating'] = round(core[i]['avg_rating'], 2)
-
-            pass
+                pass
 
         # write the processed data to a new file
         with open(os.path.join(l3_data_path, 'processed_{}.json'.format(subcat)), 'w') as f:

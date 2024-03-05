@@ -1,5 +1,6 @@
 import math
 import json
+import time
 
 CAT_NAME = [
     # "Books"
@@ -27,6 +28,9 @@ def open_file(file_name):
 # Function to calculate the review activeness of a product
 DATA_TIME = 1546300800
 def review_activeness(reviews):
+    __t = time.time()
+    __i = 0
+    __len = len(reviews)
     activeness = 0
 
     # iterate through the reviews
@@ -37,21 +41,36 @@ def review_activeness(reviews):
         k = math.log(DATA_TIME - r_time + 1)
         # add the k value to the activeness
         activeness += k
+        __i += 1
+        if time.time() - __t > 1 or __i == __len:
+            __t = time.time()
+            print('Processed {}/{} ({:.2f}%) review activeness'.format(__i, __len, __i/ __len * 100))
         pass
 
     return activeness
     
 
 def label_string(items, key):
+    __t = time.time()
+    __len = len(items)
+    __i = 0
     labels = {}
     i = 0
     for item in items:
         if item[key] not in labels:
             labels[item[key]] = i
             i += 1
+            
+        __i += 1
+        if time.time() - __t > 1 or __i == __len:
+            __t = time.time()
+            print('Processed {}/{} ({:.2f}%) label string'.format(__i, __len, __i/ __len * 100))
     return labels
 
 def label_category(items):
+    __t = time.time()
+    __len = len(items)
+    __i = 0
     labels = {}
     i = 0
     
@@ -70,6 +89,11 @@ def label_category(items):
             if cat not in labels:
                 labels[cat] = i
                 i += 1
+                
+        __i += 1
+        if time.time() - __t > 1 or __i == __len:
+            __t = time.time()
+            print('Processed {}/{} ({:.2f}%) label category'.format(__i, __len, __i/ __len * 100))
     
     return labels
 
