@@ -37,10 +37,12 @@ for subcat in cat_name:
         with open(merged_path) as f:
             for i in range(len(core)):
                 # calculate the review activeness of each product
-                
-                f.seek(i)
-                data = json.loads(f.readline())
+                #print(i)
+                line = f.readline()
+                #print(line)
+                data = json.loads(line)
                 core[i]['activeness'] = st.review_activeness(data['reviews'])
+                del data
                 # round the activeness to 4 decimal places
                 core[i]['activeness'] = round(core[i]['activeness'], 4)
 
@@ -55,12 +57,14 @@ for subcat in cat_name:
                     core[i]['rank'] = core[i]['rank'][0]
                 # extract the number from the string, the number is the first word in the string
                 if core[i]['rank'] != '' and core[i]['rank'] is not None:
-                    core[i]['rank'] = core[i]['rank'].split()[0]
+                    
+                    core[i]['rank'] = core[i]['rank'].split()[0] if core[i]['rank'].split()[0] != '' else '-1'
                     # remove non-number characters from the rank
-                    core[i]['rank'] = int(
-                        ''.join(filter(str.isdigit, core[i]['rank'])))
-                else:
-                    core[i]['rank'] = -1
+                    try:
+                        core[i]['rank'] = int(
+                            ''.join(filter(str.isdigit, core[i]['rank'])))
+                    except ValueError:
+                        core[i]['rank'] = -1
 
                 # process the category of the product
                 # if the category is a list, process each element in the list

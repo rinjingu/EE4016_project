@@ -3,15 +3,25 @@ import json
 import time
 
 CAT_NAME = [
+    
+
     # "Books"
 
-    'Gift_Cards'
-    # "All_Beauty",
-    # "Appliances",
-    # "Digital_Music",
-    # "CDs_and_Vinyl",
-    # "Automotive"
-
+    "Gift_Cards",
+    "AMAZON_FASHION",
+    "Arts_Crafts_and_Sewing",
+    "All_Beauty",
+    "Appliances",
+    "Digital_Music",
+    "CDs_and_Vinyl",
+    "Automotive",
+    "Clothing_Shoes_and_Jewelry",
+    "Cell_Phones_and_Accessories",
+    "Electronics",
+    "Home_and_Kitchen",
+    "Movies_and_TV",
+    "Luxury_Beauty",
+    "Kindle_Store"
 ]
 
 def open_file(file_name):
@@ -41,7 +51,7 @@ def review_activeness(reviews):
         k = math.log(DATA_TIME - r_time + 1)
         # add the k value to the activeness
         activeness += k
-        __i += 1
+        # __i += 1
         if time.time() - __t > 1 or __i == __len:
             __t = time.time()
             print('Processed {}/{} ({:.2f}%) review activeness'.format(__i, __len, __i/ __len * 100))

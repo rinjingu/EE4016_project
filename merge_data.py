@@ -53,11 +53,10 @@ for subcat in cat_name:
 
                 # remove unwanted characters from brand
                 if 'brand' in item:
-                    item['brand'] = item['brand'].replace("by", "").replace("\n", "").replace(" ","").replace(".","").replace("*","").replace("(),","").replace("()","")
+                    item['brand'] = item['brand'].replace("by", "").replace("\n", "").replace(" ","").replace(".","").replace("*","").replace("(),","").replace("()","").replace("-","").replace("&","")
                 else:
                     item['brand'] = ''
-                if (item['brand'] == '-') or (item['brand'] == "--") or (item['brand'] == '&'):
-                    item['brand'] = ''
+
 
                 # only get the first 3 items in category
                 if 'category' in item:
