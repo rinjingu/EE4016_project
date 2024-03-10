@@ -1,4 +1,4 @@
-collaborative filtering 
+Collaborative Filtering 
 - similarity of features in different products (item-based) (V)
 - similarity of different users' preferences on products (user-based) (X)
 
