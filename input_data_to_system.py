@@ -7,9 +7,6 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
 cwd = os.getcwd() # Set current working directory
-has_mps = torch.backends.mps.is_built()
-device = "cuda" if torch.cuda.is_available() else "mps" if has_mps else "cpu"
-
 # Load JSON data from a file
 preset_data = [] #add read size
 with open(os.path.join(cwd, 'data.json'), 'r') as f:
