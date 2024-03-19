@@ -3,25 +3,37 @@ import json
 import time
 
 CAT_NAME = [
-    
+    #  "Grocery_and_Gourmet_Food",
+     "Industrial_and_Scientific"
+    # "Magazine_Subscriptions",
+    # "Musical_Instruments",
+    # "Office_Products",
+    # "Patio_Lawn_and_Garden",
+    # "Pet_Supplies",
+    # "Prime_Pantry",
+    # "Software",
+    # "Sports_and_Outdoors",
+    # "Tools_and_Home_Improvement",
+    # "Toys_and_Games",
+    # "Video_Games"   
 
     # "Books"
 
-    "Gift_Cards",
-    "AMAZON_FASHION",
-    "Arts_Crafts_and_Sewing",
-    "All_Beauty",
-    "Appliances",
-    "Digital_Music",
-    "CDs_and_Vinyl",
-    "Automotive",
-    "Clothing_Shoes_and_Jewelry",
-    "Cell_Phones_and_Accessories",
-    "Electronics",
-    "Home_and_Kitchen",
-    "Movies_and_TV",
-    "Luxury_Beauty",
-    "Kindle_Store"
+    # "Gift_Cards",
+    # "AMAZON_FASHION",
+    # "Arts_Crafts_and_Sewing",
+    # "All_Beauty",
+    # "Appliances",
+    # "Digital_Music",
+    # "CDs_and_Vinyl",
+    # "Automotive",
+    # "Clothing_Shoes_and_Jewelry",
+    # "Cell_Phones_and_Accessories",
+    # "Electronics",
+    # "Home_and_Kitchen",
+    # "Movies_and_TV",
+    # "Luxury_Beauty",
+    # "Kindle_Store"
 ]
 
 def open_file(file_name):

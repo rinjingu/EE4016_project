@@ -38,12 +38,12 @@ for subcat in cat_name:
                 # if price is not in "$" format, set it to None, skip the checking if price is ''
                 if 'price' in item and item['price'] != '' and item['price'].startswith("$"):
                     # Remove symbols
-                    price = re.sub(r"[^\d.]", "", item['price'].replace("$", "").replace(",", "").replace(" ",""))
+                    price = item['price'].replace("$", "").replace(",", "").replace(" ","")
                     if "-" in price:
                         # It's a range, split and process
                         lower, upper = map(float, price.split("-"))
-                        mean = (lower + upper) / 2
-                        diff = upper - mean
+                        mean = round((lower + upper) / 2, 4)
+                        diff = round(upper - mean, 4)
                         item['price'] = [str(mean), str(diff)]
                     else:
                         # It's an actual amount
