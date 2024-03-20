@@ -20,11 +20,14 @@ for subcat in cat_name:
         core_path = os.path.join(
             l2_data_path, 'core_{}.json'.format(subcat))
 
-        # data = st.open_file(merged_path)
+        data = st.open_file(merged_path)
+        asins = st.label_asin(data)
+        del data
         core = st.open_file(core_path)
 
         brands = st.label_string(core, 'brand')
         subcats = st.label_category(core)
+        
         # dump the brand label to a file, for future reference, each label is a key-value pair as a new line
         with open(os.path.join(l3_data_path, 'brand_label_{}.yaml'.format(subcat)), 'w') as f:
             for k, v in brands.items():
@@ -34,6 +37,13 @@ for subcat in cat_name:
         with open(os.path.join(l3_data_path, 'subcat_label_{}.yaml'.format(subcat)), 'w') as f:
             for k, v in subcats.items():
                 f.write('{}: {}\n'.format(k, v))
+
+        # dump the asins to a file, for future reference, each asin is a key-value pair as a new line
+        with open(os.path.join(l3_data_path, 'asin_label_{}.yaml'.format(subcat)), 'w') as f:
+            for k, v in asins.items():
+                f.write('{}: {}\n'.format(k, v))
+                
+
         with open(merged_path) as f:
             for i in range(len(core)):
                 # calculate the review activeness of each product
@@ -42,6 +52,7 @@ for subcat in cat_name:
                 #print(line)
                 data = json.loads(line)
                 core[i]['activeness'] = st.review_activeness(data['reviews'])
+                core[i]['relation'] = st.map_relation(data, length_asin=len(asins), buy_effect=1, view_effect=0.5)
                 del data
                 # round the activeness to 4 decimal places
                 core[i]['activeness'] = round(core[i]['activeness'], 4)
