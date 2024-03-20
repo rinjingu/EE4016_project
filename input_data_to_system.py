@@ -6,13 +6,6 @@ from torch.optim import Adam
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
-cwd = os.getcwd() # Set current working directory
-# Load JSON data from a file
-preset_data = [] #add read size
-with open(os.path.join(cwd, 'data.json'), 'r') as f:
-    for line in f:
-        preset_data.append(json.loads(line))
-
 class item_based_dataset(Dataset):
     def __init__(self, preset_data):
         self.preset_data = preset_data
@@ -39,7 +32,17 @@ class item_based_dataset(Dataset):
 
     def __len__(self):
         return len(self.preset_data)
-    
 
-dataset = item_based_dataset(preset_data)
-dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+def main():
+    cwd = os.getcwd() # Set current working directory
+    # Load JSON data from a file
+    preset_data = [] #add read size
+    with open(os.path.join(cwd, 'data.json'), 'r') as f:
+        for line in f:
+            preset_data.append(json.loads(line))
+
+    dataset = item_based_dataset(preset_data)
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+
+if __name__ == "__main__":
+    main()
