@@ -1,8 +1,39 @@
 import math
 import json
+import time
 
 CAT_NAME = [
-    'Gift_Cards'
+    #  "Grocery_and_Gourmet_Food",
+     "Industrial_and_Scientific"
+    # "Magazine_Subscriptions",
+    # "Musical_Instruments",
+    # "Office_Products",
+    # "Patio_Lawn_and_Garden",
+    # "Pet_Supplies",
+    # "Prime_Pantry",
+    # "Software",
+    # "Sports_and_Outdoors",
+    # "Tools_and_Home_Improvement",
+    # "Toys_and_Games",
+    # "Video_Games"   
+
+    # "Books"
+
+    # "Gift_Cards",
+    # "AMAZON_FASHION",
+    # "Arts_Crafts_and_Sewing",
+    # "All_Beauty",
+    # "Appliances",
+    # "Digital_Music",
+    # "CDs_and_Vinyl",
+    # "Automotive",
+    # "Clothing_Shoes_and_Jewelry",
+    # "Cell_Phones_and_Accessories",
+    # "Electronics",
+    # "Home_and_Kitchen",
+    # "Movies_and_TV",
+    # "Luxury_Beauty",
+    # "Kindle_Store"
 ]
 
 def open_file(file_name):
@@ -19,6 +50,9 @@ def open_file(file_name):
 # Function to calculate the review activeness of a product
 DATA_TIME = 1546300800
 def review_activeness(reviews):
+    __t = time.time()
+    __i = 0
+    __len = len(reviews)
     activeness = 0
 
     # iterate through the reviews
@@ -29,21 +63,36 @@ def review_activeness(reviews):
         k = math.log(DATA_TIME - r_time + 1)
         # add the k value to the activeness
         activeness += k
+        # __i += 1
+        if time.time() - __t > 1 or __i == __len:
+            __t = time.time()
+            print('Processed {}/{} ({:.2f}%) review activeness'.format(__i, __len, __i/ __len * 100))
         pass
 
     return activeness
     
 
 def label_string(items, key):
+    __t = time.time()
+    __len = len(items)
+    __i = 0
     labels = {}
     i = 0
     for item in items:
         if item[key] not in labels:
             labels[item[key]] = i
             i += 1
+            
+        __i += 1
+        if time.time() - __t > 1 or __i == __len:
+            __t = time.time()
+            print('Processed {}/{} ({:.2f}%) label string'.format(__i, __len, __i/ __len * 100))
     return labels
 
 def label_category(items):
+    __t = time.time()
+    __len = len(items)
+    __i = 0
     labels = {}
     i = 0
     
@@ -62,6 +111,11 @@ def label_category(items):
             if cat not in labels:
                 labels[cat] = i
                 i += 1
+                
+        __i += 1
+        if time.time() - __t > 1 or __i == __len:
+            __t = time.time()
+            print('Processed {}/{} ({:.2f}%) label category'.format(__i, __len, __i/ __len * 100))
     
     return labels
 
@@ -86,9 +140,9 @@ def map_relation(items, significantness=1, buy_effect=1, view_effect=1):
             else:
                 map_[a_item] = view_effect
 
-        
+        # add the relation to the dictionary
+        relation[asin] = map_ 
 
 
 
     return relation
-
