@@ -52,7 +52,7 @@ for subcat in cat_name:
                 #print(line)
                 data = json.loads(line)
                 core[i]['activeness'] = st.review_activeness(data['reviews'])
-                core[i]['relation'] = st.map_relation(data, length_asin=len(asins), buy_effect=1, view_effect=0.5)
+                core[i]['relation'] = st.map_relation(data, asins, length_asin=len(asins), buy_effect=1, view_effect=0.5)
                 del data
                 # round the activeness to 4 decimal places
                 core[i]['activeness'] = round(core[i]['activeness'], 4)
