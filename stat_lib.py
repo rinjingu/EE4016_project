@@ -119,7 +119,45 @@ def label_category(items):
     
     return labels
 
-def map_relation(items, significantness=1, buy_effect=1, view_effect=1):
+def label_asin(items):
+    __t = time.time()
+    __len = len(items)
+    __i = 0
+    labels = {}
+    i = 0
+    
+    # iterate through the items
+    for item in items:
+        # get the asin of the item
+        asin = item['asin']
+        # add the asin to the dictionary
+        if asin not in labels:
+            labels[asin] = i
+            i += 1
+
+        also_view = item['also_view']
+        also_buy = item['also_buy']
+        
+        also = also_view + also_buy
+        for a in also:
+            if a not in labels:
+                labels[a] = i
+                i += 1
+        
+        __i += 1
+        if time.time() - __t > 1 or __i == __len:
+            __t = time.time()
+            print('Processed {}/{} ({:.2f}%) label asin'.format(__i, __len, __i/ __len * 100))
+    
+    return labels
+
+def map_relation(items, significantness=1, buy_effect=1, view_effect=1, length_asin=0):
+    if length_asin == 0:
+        raise ValueError('length_asin cannot be 0')
+    
+    __t = time.time()
+    __len = len(items)
+    __i = 0
     # create a dictionary to store the relation
     relation = {}
     # iterate through the items
@@ -142,7 +180,8 @@ def map_relation(items, significantness=1, buy_effect=1, view_effect=1):
 
         # add the relation to the dictionary
         relation[asin] = map_ 
-
-
+        if time.time() - __t > 1 or __i == __len:
+            __t = time.time()
+            print('Processed {}/{} ({:.2f}%) relation category'.format(__i, __len, __i/ __len * 100))
 
     return relation
