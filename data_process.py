@@ -37,6 +37,13 @@ for subcat in cat_name:
         with open(os.path.join(l3_data_path, 'subcat_label_{}.yaml'.format(subcat)), 'w') as f:
             for k, v in subcats.items():
                 f.write('{}: {}\n'.format(k, v))
+
+        # dump the asins to a file, for future reference, each asin is a key-value pair as a new line
+        with open(os.path.join(l3_data_path, 'asin_label_{}.yaml'.format(subcat)), 'w') as f:
+            for k, v in asins.items():
+                f.write('{}: {}\n'.format(k, v))
+                
+
         with open(merged_path) as f:
             for i in range(len(core)):
                 # calculate the review activeness of each product
@@ -45,7 +52,7 @@ for subcat in cat_name:
                 #print(line)
                 data = json.loads(line)
                 core[i]['activeness'] = st.review_activeness(data['reviews'])
-                core[i]['relation'] = st.map_relation(data['related'], length_asin=len(asins), buy_effect=1, view_effect=0.5)
+                core[i]['relation'] = st.map_relation(data, length_asin=len(asins), buy_effect=1, view_effect=0.5)
                 del data
                 # round the activeness to 4 decimal places
                 core[i]['activeness'] = round(core[i]['activeness'], 4)
