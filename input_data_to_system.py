@@ -20,15 +20,18 @@ class item_based_dataset(Dataset):
     def __getitem__(self, index):
         try:
             asin = self.preset_data[index]['asin']
-            price_from = float(self.preset_data[index]['price'][0]) or -1
-            price_to = float(self.preset_data[index]['price'][1]) or -1
+            price_mean = float(self.preset_data[index]['price'][0]) or -1
+            if float(self.preset_data[index]['price']) == 0:
+                price_diff = 0
+            else:
+                price_diff = float(self.preset_data[index]['price'][1]) or -1
             avg_rating = self.preset_data[index]['avg_rating'] or -1
             rank = self.preset_data[index]['rank'] or -1
             brand = self.preset_data[index]['brand'] or -1
             category = self.preset_data[index]['category'] or [-1, -1]
             category_a, category_b = (category + [-1, -1])[:2]
             activeness = self.preset_data[index]['activeness'] or -1
-            packed_data = [price_from,price_to,rank,brand,category_a,category_b,activeness]
+            packed_data = [price_mean,price_diff,rank,brand,category_a,category_b,activeness]
             trainset = torch.tensor(packed_data)  # convert to tensor
             Verify_ans = torch.tensor([avg_rating], dtype=torch.float)
             return trainset,Verify_ans
