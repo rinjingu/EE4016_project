@@ -1,12 +1,6 @@
 import json
 import pandas as pd
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
-import numpy as np
-import torch
-from tqdm import tqdm
-from annoy import AnnoyIndex
-import dask.dataframe as dd
+
 
 
 # Function to flatten JSON
@@ -31,10 +25,8 @@ def flatten_json(y):
 
 # Read the JSON file
 flattened_data = []
-with open('yelp/yelp_academic_dataset_business.json', 'r') as f:
-    for i, line in enumerate(f):
-        if i == 1000:  # stop after processing 1000 records
-            break
+with open('yelp/yelp_academic_dataset_business.json', 'r', encoding='utf-8') as f:
+    for _, line in enumerate(f):
         data = json.loads(line)
         flattened_data.append(flatten_json(data))
 
@@ -54,5 +46,5 @@ df = pd.concat([df.drop('categories', axis=1), df_categories], axis=1)
 print(df.columns)
 
 # Write the processed data to a new JSON file
-df.to_json('processed3.json', orient='records', lines=True)
+df.to_json('for_item.json', orient='records', lines=True)
 
