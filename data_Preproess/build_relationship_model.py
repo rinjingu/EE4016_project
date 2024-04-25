@@ -8,12 +8,12 @@ from torchvision import transforms
 from torchtext import data
 from tqdm import tqdm
 from sklearn.metrics.pairwise import cosine_similarity
+import input_data_to_system as input
+
 
 # Load JSON data from a file
 businessdata = [] #add read size
-with open(os.path.join('yelp/processed_business.json'), 'r') as f:
-    for line in tqdm(f, desc="Loading business data"):
-        businessdata.append(json.loads(line))
+businessdata = input.json_transform('yelp/processed_business.json')
 
 # Convert the list of dictionaries into a DataFrame
 df = pd.DataFrame(businessdata)

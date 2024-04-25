@@ -94,7 +94,13 @@ class yaml_to_system():
             for line in f:
                 self.meanings.append(yaml.safe_load(line))          
         return self.meanings         
-    
+
+def json_transform(address):    
+    data = []
+    with open(address, 'r') as f:
+        for line in f:
+            data.append(json.loads(line))
+    return data
     
 class item_based_dataset(Dataset):
     def __init__(self, preset_data):
