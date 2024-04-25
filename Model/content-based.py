@@ -33,7 +33,7 @@ class NDCGLoss(nn.Module):
         loss = abs(1 - ndcg)
         return loss
 
-class MLPModel(nn.Module):
+class ContentModel(nn.Module):
     def __init__(self, num_items, embedding_size):
         super().__init__()
         self.item_embedding = nn.Embedding(num_items, embedding_size)
@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
     # Define the model
     embedding_size = 128
-    model = MLPModel(len(id_to_index), embedding_size)
+    model = ContentModel(len(id_to_index), embedding_size)
 
     # Define the loss function and the optimizer with L2 regularization
     criterion = nn.MSELoss()

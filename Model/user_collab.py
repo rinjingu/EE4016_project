@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 has_mps = torch.backends.mps.is_built()
 device = "cuda" if torch.cuda.is_available() else "mps" if has_mps else "cpu"
 
-class UseritemModel(nn.Module):
+class UserCollabModel(nn.Module):
     def __init__(self, num_users, num_items, embedding_size):
         super().__init__()
         self.user_embedding = nn.Embedding(num_users, embedding_size)
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     
     # Define the model
     embedding_size = 50
-    model = UseritemModel(len(user_to_index), len(item_to_index), embedding_size)
+    model = UserCollabModel(len(user_to_index), len(item_to_index), embedding_size)
 
     # Define the loss function and the optimizer
     criterion = nn.MSELoss()
@@ -133,41 +133,41 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
 
-# User interaction loop
-while True:
-    model = UseritemModel(len(user_to_index), len(item_to_index), embedding_size)
-    model.load_state_dict(torch.load('model.pth'))
-    model = model.to(device)
-    mode = input("Enter 'user' to recommend items for a user, 'item' to predict the rating for a item, or 'quit' to exit: ")
-    if mode.lower() == 'quit':
-        break
-    elif mode.lower() == 'user':
-        user_id = input("Enter user id: ")
-        if user_id in user_to_index:
-            user_index = torch.tensor([user_to_index[user_id]] * len(item_to_index), dtype=torch.long).to(device)
-            item_indices = torch.tensor(list(item_to_index.values()), dtype=torch.long).to(device)
-            ratings = model(user_index, item_indices)
-            ratings = torch.sigmoid(ratings) * 4 + 1  # Convert the ratings to a range of 1-5
-            top10_values, top10_indices = torch.topk(ratings, 10)
-            top10_items = [index_to_item[index.item()] for index in top10_indices]
-            top10_ratings = top10_values.cpu().numpy()
-            print(f'Top 10 recommended items for user {user_id} and their predicted ratings:')
-            for item, rating in zip(top10_items, top10_ratings):
-                print(f'item: {item}, Predicted rating: {rating:.2f}')
-        else:
-            print("User id not found. Please try again.")
+# # User interaction loop
+# while True:
+#     model = UserCollabModel(len(user_to_index), len(item_to_index), embedding_size)
+#     model.load_state_dict(torch.load('model.pth'))
+#     model = model.to(device)
+#     mode = input("Enter 'user' to recommend items for a user, 'item' to predict the rating for a item, or 'quit' to exit: ")
+#     if mode.lower() == 'quit':
+#         break
+#     elif mode.lower() == 'user':
+#         user_id = input("Enter user id: ")
+#         if user_id in user_to_index:
+#             user_index = torch.tensor([user_to_index[user_id]] * len(item_to_index), dtype=torch.long).to(device)
+#             item_indices = torch.tensor(list(item_to_index.values()), dtype=torch.long).to(device)
+#             ratings = model(user_index, item_indices)
+#             ratings = torch.sigmoid(ratings) * 4 + 1  # Convert the ratings to a range of 1-5
+#             top10_values, top10_indices = torch.topk(ratings, 10)
+#             top10_items = [index_to_item[index.item()] for index in top10_indices]
+#             top10_ratings = top10_values.cpu().numpy()
+#             print(f'Top 10 recommended items for user {user_id} and their predicted ratings:')
+#             for item, rating in zip(top10_items, top10_ratings):
+#                 print(f'item: {item}, Predicted rating: {rating:.2f}')
+#         else:
+#             print("User id not found. Please try again.")
 
-    elif mode.lower() == 'item':
-        item_id = input("Enter item id: ")
-        if item_id in item_to_index:
-            item_index = torch.tensor([item_to_index[item_id]], dtype=torch.long).to(device)
-            user_indices = torch.tensor(list(user_to_index.values()), dtype=torch.long).to(device)
-            # Repeat the item_index tensor to match the size of user_indices
-            item_index = item_index.repeat(user_indices.size(0))
-            ratings = model(user_indices, item_index)
-            ratings = torch.sigmoid(ratings) * 4 + 1  # Convert the ratings to a range of 1-5
-            print(f'Predicted rating for item {item_id}: {ratings.mean().item():.2f}')
-        else:
-            print("item id not found. Please try again.")
-    else:
-        print("Invalid mode. Please enter 'user' or 'item'.")
+#     elif mode.lower() == 'item':
+#         item_id = input("Enter item id: ")
+#         if item_id in item_to_index:
+#             item_index = torch.tensor([item_to_index[item_id]], dtype=torch.long).to(device)
+#             user_indices = torch.tensor(list(user_to_index.values()), dtype=torch.long).to(device)
+#             # Repeat the item_index tensor to match the size of user_indices
+#             item_index = item_index.repeat(user_indices.size(0))
+#             ratings = model(user_indices, item_index)
+#             ratings = torch.sigmoid(ratings) * 4 + 1  # Convert the ratings to a range of 1-5
+#             print(f'Predicted rating for item {item_id}: {ratings.mean().item():.2f}')
+#         else:
+#             print("item id not found. Please try again.")
+#     else:
+#         print("Invalid mode. Please enter 'user' or 'item'.")

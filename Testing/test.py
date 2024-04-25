@@ -86,62 +86,9 @@ class ReviewDataset(Dataset):
     def __len__(self):
         return len(self.reviews)
 
-class UseritemModel(nn.Module):
-    def __init__(self, num_users, num_items, embedded_size):
-        super().__init__()
-        self.user_embedding = nn.Embedding(num_users, embedded_size)
-        self.item_embedding = nn.Embedding(num_items, embedded_size)
-        self.fc1 = nn.Linear(embedded_size * 2, 1024)
-        self.dropout1 = nn.Dropout(0.2)
-        self.fc2 = nn.Linear(1024, 512)
-        self.dropout2 = nn.Dropout(0.2)
-        self.fc3 = nn.Linear(512, 256)
-        self.dropout3 = nn.Dropout(0.2)
-        self.fc4 = nn.Linear(256, 1)
-
-    def forward(self, users, items):
-        user_embedding = self.user_embedding(users)
-        item_embedding = self.item_embedding(items)
- 
-        x = torch.cat([user_embedding, item_embedding], dim=1)
-        x = self.dropout1(torch.relu(self.fc1(x)))
-        x = self.dropout2(torch.relu(self.fc2(x)))
-        x = self.dropout3(torch.relu(self.fc3(x)))
-        x = self.fc4(x)
-        return x.squeeze()
-    
-    def recommend(self, attention_weight, user_id, num_recommendations=20):
-        user_history = self.user_histories[user_id]
-        recommendation_scores = {}
-        for item in user_history:
-            # Get the most similar items
-            if item == 'user_id':
-                continue
-            similar_items = bussiness_index.get_nns_by_vector(self.item_embedding(torch.tensor([item_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)           
-            for similar_item, similarity_score in zip(*similar_items):
-                similarity_score *= attention_weight
-                if(similarity_score > 5):
-                    similarity_score = 5
-                if similar_item in recommendation_scores:
-                    recommendation_scores[similar_item] += similarity_score
-                else:
-                    recommendation_scores[similar_item] = similarity_score
-        recommendation_scores = sorted(recommendation_scores.items(), key=lambda x: x[1], reverse=True)
-        return recommendation_scores[:num_recommendations]
 
 
-    def get_score(self, item_index, distance):
-        item_embeddings = self.item_embedding(item_index).to(device)
-        x = torch.cat([item_embeddings, distance.view(-1, 1).to(device)], dim=1)
-        self.fc1 = nn.Linear(81, 1024)
-        x = self.dropout1(torch.relu(self.fc1(x)))
-        x = self.dropout2(torch.relu(self.fc2(x)))
-        x = self.dropout3(torch.relu(self.fc3(x)))
-        x = self.fc4(x)
-        return x.squeeze()
-
-
-class RecommendationModel(nn.Module):
+class ItemCollabModel(nn.Module):
     def __init__(self, user_histories, embedded_size, num_items):
         super().__init__()
         self.user_histories = user_histories
@@ -195,7 +142,7 @@ class RecommendationModel(nn.Module):
         score = torch.sigmoid(self.linear4(x))
         return score.squeeze()
 
-class itemModel(nn.Module):
+class ItemModel(nn.Module):
     def __init__(self, transformer_model, recommendation_model, df):
         super().__init__()
         self.transformer_model = transformer_model
@@ -243,7 +190,62 @@ class itemModel(nn.Module):
         recommendation_scores = sorted(recommendation_scores.items(), key=lambda x: x[1], reverse=True)
 
         return recommendation_scores[:num_recommendations]
+   
+class UserCollabModel(nn.Module):
+    def __init__(self, num_users, num_items, embedded_size):
+        super().__init__()
+        self.user_embedding = nn.Embedding(num_users, embedded_size)
+        self.item_embedding = nn.Embedding(num_items, embedded_size)
+        self.fc1 = nn.Linear(embedded_size * 2, 1024)
+        self.dropout1 = nn.Dropout(0.2)
+        self.fc2 = nn.Linear(1024, 512)
+        self.dropout2 = nn.Dropout(0.2)
+        self.fc3 = nn.Linear(512, 256)
+        self.dropout3 = nn.Dropout(0.2)
+        self.fc4 = nn.Linear(256, 1)
+
+    def forward(self, users, items):
+        user_embedding = self.user_embedding(users)
+        item_embedding = self.item_embedding(items)
+ 
+        x = torch.cat([user_embedding, item_embedding], dim=1)
+        x = self.dropout1(torch.relu(self.fc1(x)))
+        x = self.dropout2(torch.relu(self.fc2(x)))
+        x = self.dropout3(torch.relu(self.fc3(x)))
+        x = self.fc4(x)
+        return x.squeeze()
     
+    def recommend(self, attention_weight, user_id, num_recommendations=20):
+        user_history = self.user_histories[user_id]
+        recommendation_scores = {}
+        for item in user_history:
+            # Get the most similar items
+            if item == 'user_id':
+                continue
+            similar_items = bussiness_index.get_nns_by_vector(self.item_embedding(torch.tensor([item_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)           
+            for similar_item, similarity_score in zip(*similar_items):
+                similarity_score *= attention_weight
+                if(similarity_score > 5):
+                    similarity_score = 5
+                if similar_item in recommendation_scores:
+                    recommendation_scores[similar_item] += similarity_score
+                else:
+                    recommendation_scores[similar_item] = similarity_score
+        recommendation_scores = sorted(recommendation_scores.items(), key=lambda x: x[1], reverse=True)
+        return recommendation_scores[:num_recommendations]
+
+
+    def get_score(self, item_index, distance):
+        item_embeddings = self.item_embedding(item_index).to(device)
+        x = torch.cat([item_embeddings, distance.view(-1, 1).to(device)], dim=1)
+        self.fc1 = nn.Linear(81, 1024)
+        x = self.dropout1(torch.relu(self.fc1(x)))
+        x = self.dropout2(torch.relu(self.fc2(x)))
+        x = self.dropout3(torch.relu(self.fc3(x)))
+        x = self.fc4(x)
+        return x.squeeze()
+
+ 
 class UserModel(nn.Module):
     def __init__(self, transformer_model, user_model, df):
         super().__init__()
@@ -451,8 +453,8 @@ user_histories_file = fu.json_transform(os.path.join(cwd, 'data/process_user.jso
 item_embedded_size = 128
 user_embedded_size = 80
 transformer_model = RobertaForSequenceClassification.from_pretrained('distilroberta-base', num_labels=5)
-item_based_model = RecommendationModel(user_histories_file, item_embedded_size, len(item_to_index))
-user_based_model = UseritemModel(len(user_to_index), len(item_to_index), user_embedded_size)
+item_based_model = ItemCollabModel(user_histories_file, item_embedded_size, len(item_to_index))
+user_based_model = UserCollabModel(len(user_to_index), len(item_to_index), user_embedded_size)
 
 transformer_model.load_state_dict(torch.load('trained_models/trained_model_20240422015913.pth'))
 item_based_model.load_state_dict(torch.load(os.path.join(cwd, 'trained_models/Item-based_model.pth')))
@@ -461,7 +463,7 @@ user_based_model.load_state_dict(torch.load(os.path.join(cwd, 'trained_models/co
 
 item_based_model = item_based_model.to(device)
 user_based_model = user_based_model.to(device)
-item_model = itemModel(transformer_model, item_based_model,df)
+item_model = ItemModel(transformer_model, item_based_model,df)
 user_model = UserModel(transformer_model, user_based_model,df)
 transformer_model.eval().to(device)
 item_model = item_model.eval().to(device)

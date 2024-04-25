@@ -17,7 +17,7 @@ def index_transformer():
 
 user_to_index,item_to_index,index_to_item = index_transformer()
   
-class UseritemModel(nn.Module):
+class UserCollabModel(nn.Module):
     def __init__(self, num_users, num_items, embedding_size):
         super().__init__()
         self.user_embedding = nn.Embedding(num_users, embedding_size)
@@ -45,7 +45,7 @@ class UseritemModel(nn.Module):
 num_users = len(user_to_index)
 num_items = len(item_to_index)
 embedding_size = 80
-model = UseritemModel(num_users, num_items, embedding_size)
+model = UserCollabModel(num_users, num_items, embedding_size)
 model.load_state_dict(torch.load('trained_models/collab_test1.pth'))
 max_user_index = max(user_to_index.values())
 max_item_index = max(item_to_index.values())

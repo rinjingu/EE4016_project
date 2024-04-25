@@ -56,7 +56,7 @@ class UserItemDataset(Dataset):
         item = self.item_to_index[item]
         return user, item, rating
     
-class RecommendationModel(nn.Module):
+class ItemCollabModel(nn.Module):
     def __init__(self, user_histories, embeeded_size, num_items):
         super().__init__()
         self.user_histories = user_histories

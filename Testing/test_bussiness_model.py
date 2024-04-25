@@ -16,7 +16,7 @@ with open('pkl/item_to_index.pkl', 'rb') as f:
     item_to_index = pickle.load(f)
 with open('pkl/index_to_item.pkl', 'rb') as f:
     index_to_item = pickle.load(f)
-class RecommendationModel(nn.Module):
+class ItemCollabModel(nn.Module):
     def __init__(self, user_histories, embedded_size, num_items):
         super().__init__()
         self.user_histories = user_histories
@@ -62,7 +62,7 @@ class RecommendationModel(nn.Module):
 user_to_index, item_to_index, index_to_item = fu.index_transformer()
 user_histories_file = fu.json_transform(os.path.join(cwd, 'yelp/process_user.json'))
 embedded_size = 128
-model = RecommendationModel(user_histories_file, embedded_size, len(item_to_index))
+model = ItemCollabModel(user_histories_file, embedded_size, len(item_to_index))
 model.load_state_dict(torch.load(os.path.join(cwd, 'model_epoch_1.pth')))
 model = model.to(device)
 
