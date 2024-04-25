@@ -352,7 +352,7 @@ def predict_rating(model, item_id, df):
     
 #     print(f'Item: {item}, Score: {score}')
     
-    
+# get rating of the user past item record
 def get_item_score(user_id, item_id, user_model,item_model, transformer_model, df):
     # Use the transformer model to predict the rating
     rating = predict_rating(transformer_model, item_id, df)
@@ -370,6 +370,7 @@ def get_item_score(user_id, item_id, user_model,item_model, transformer_model, d
     score = score.item()
     return score
 
+# cal the loss of the user by past item record, if number_of_recommender == 1, and user_id is filled, it will generate the selected user
 def Loss_Cal(number_of_recommender, user_id=None):
     if user_id is not None and number_of_recommender == 1:
         selected_users = [user_id]
@@ -414,12 +415,8 @@ def Loss_Cal(number_of_recommender, user_id=None):
 
     return average_rmse, average_mae, average_ndcg_loss
 
-average_rmse, average_mae, average_ndcg_loss = Loss_Cal(10)
-print(f'Average RMSE: {average_rmse}')
-print(f'Average MAE: {average_mae}')
-print(f'Average NDCG Loss: {average_ndcg_loss}')
 
-
+# input the user_id and number of recommender need, return the list of the predicted ratings
 def get_ratings(selected_user_id,number_of_recommender):
     predicted_ratings_list = []
     predicted = []
@@ -487,3 +484,19 @@ item_to_index = {item: i for i, item in enumerate(set(item_id for _, item_id, _ 
 # Load data
 dataset = UserItemDataset(user_item_pairs,item_to_index)
 data_loader = DataLoader(dataset, batch_size=48)
+
+
+#testcase for the function
+average_rmse, average_mae, average_ndcg_loss = Loss_Cal(10)
+print(f'Average RMSE: {average_rmse}')
+print(f'Average MAE: {average_mae}')
+print(f'Average NDCG Loss: {average_ndcg_loss}')
+
+user_id ='--034gGozmK4y5txuPsdAA'
+average_rmse, average_mae, average_ndcg_loss = Loss_Cal(1,user_id)
+print(f'Average RMSE: {average_rmse}')
+print(f'Average MAE: {average_mae}')
+print(f'Average NDCG Loss: {average_ndcg_loss}')
+
+predicted_ratings = get_ratings(user_id, 10)
+print(predicted_ratings)
