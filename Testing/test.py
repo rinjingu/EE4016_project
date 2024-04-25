@@ -6,15 +6,12 @@ from tqdm import tqdm
 from transformers import RobertaForSequenceClassification, RobertaTokenizer
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from torch import nn
 import torch.nn.functional as F
 import Frequently_Used as fu
-from torch.utils.data.dataset import random_split
 import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import random
-import json
 
 
 
@@ -472,18 +469,12 @@ user_model = user_model.eval().to(device)
 
 # Load mappings
 user_item_pairs = load_user_item_pairs(os.path.join(cwd, 'data/process_user.json'))
-
 # Convert the list to a DataFrame
 user_item_pairs_df = pd.DataFrame(user_item_pairs, columns=['user_id', 'item_id', 'rating'])
-
 # Now you can call to_records on the DataFrame
 user_item_pairs_list = [tuple(x) for x in user_item_pairs_df.to_records(index=False)]
 user_to_index = {user: i for i, user in enumerate(set(user_id for user_id, _, _ in user_item_pairs_list))}
 item_to_index = {item: i for i, item in enumerate(set(item_id for _, item_id, _ in user_item_pairs_list))}
-# Load your pretrained model
-# Load data
-dataset = UserItemDataset(user_item_pairs,item_to_index)
-data_loader = DataLoader(dataset, batch_size=48)
 
 
 #testcase for the function
