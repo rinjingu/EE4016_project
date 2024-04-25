@@ -45,15 +45,15 @@ class NDCGLoss(nn.Module):
         return loss
 
 class UserItemDataset(Dataset):
-    def __init__(self, user_item_pairs,business_to_index):
+    def __init__(self, user_item_pairs,item_to_index):
         self.user_item_pairs = user_item_pairs
-        self.business_to_index = business_to_index
+        self.item_to_index = item_to_index
     def __len__(self):
         return len(self.user_item_pairs)
 
     def __getitem__(self, idx):
         user, item, rating = self.user_item_pairs[idx]
-        item = self.business_to_index[item]
+        item = self.item_to_index[item]
         return user, item, rating
     
 class RecommendationModel(nn.Module):
@@ -99,7 +99,7 @@ class RecommendationModel(nn.Module):
 
         for item in user_history:
             # Get the most similar items
-            similar_items = bussiness_index.get_nns_by_vector(self.item_embedding(torch.tensor([business_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)
+            similar_items = bussiness_index.get_nns_by_vector(self.item_embedding(torch.tensor([item_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)
             for similar_item, similarity_score in zip(*similar_items):
                 if similar_item in recommendation_scores:
                     recommendation_scores[similar_item] += similarity_score
@@ -110,16 +110,16 @@ class RecommendationModel(nn.Module):
         recommendations = sorted(recommendation_scores.items(), key=lambda x: x[1], reverse=True)
 
         # Return the top num_recommendations items
-        return [index_to_business[i[0]] for i in recommendations[:num_recommendations]]
+        return [index_to_item[i[0]] for i in recommendations[:num_recommendations]]
     
 def load_user_item_pairs(address):
     data = fu.json_transform(address)
     user_item_pairs = []
     for user_data in data:
         user_id = user_data['user_id']
-        for business_id, rating in user_data.items():
-            if business_id != 'user_id':
-                user_item_pairs.append((user_id, business_id, rating))
+        for item_id, rating in user_data.items():
+            if item_id != 'user_id':
+                user_item_pairs.append((user_id, item_id, rating))
     return user_item_pairs
 
 # Load mappings
@@ -127,33 +127,33 @@ user_item_pairs = load_user_item_pairs(os.path.join(cwd, 'yelp/process_user.json
 
 # Load Annoy index
 bussiness_index = AnnoyIndex(128, 'angular')  # 50 is the dimensionality of your item embeddings
-bussiness_index.load('yelp_business.ann')
+bussiness_index.load('yelp_item.ann')
 # Create mappings
-user_to_index, business_to_index, index_to_business = fu.index_transformer()
+user_to_index, item_to_index, index_to_item = fu.index_transformer()
 
 # Convert the list to a DataFrame
-user_item_pairs_df = pd.DataFrame(user_item_pairs, columns=['user_id', 'business_id', 'rating'])
+user_item_pairs_df = pd.DataFrame(user_item_pairs, columns=['user_id', 'item_id', 'rating'])
 
 # Now you can call to_records on the DataFrame
 user_item_pairs_list = [tuple(x) for x in user_item_pairs_df.to_records(index=False)]
-user_to_index = {user: i for i, user in enumerate(set(user_id for user_id, business_id, rating in user_item_pairs_list))}
-business_to_index = {business: i for i, business in enumerate(set(business_id for user_id, business_id, rating in user_item_pairs_list))}
+user_to_index = {user: i for i, user in enumerate(set(user_id for user_id, item_id, rating in user_item_pairs_list))}
+item_to_index = {item: i for i, item in enumerate(set(item_id for user_id, item_id, rating in user_item_pairs_list))}
 
 # Load your pretrained model
 # Load data
-dataset = UserItemDataset(user_item_pairs,business_to_index)
+dataset = UserItemDataset(user_item_pairs,item_to_index)
 data_loader = DataLoader(dataset, batch_size=128)
-user_item_pairs = pd.DataFrame(user_item_pairs, columns=['user_id', 'business_id', 'rating'])
+user_item_pairs = pd.DataFrame(user_item_pairs, columns=['user_id', 'item_id', 'rating'])
 with open('user_item_pairs.pkl', 'wb') as f:
     pickle.dump(user_item_pairs, f)
     
-user_buying_records = [(user_to_index[row.user_id], business_to_index[row.business_id], row.rating) for row in user_item_pairs.itertuples()]
+user_buying_records = [(user_to_index[row.user_id], item_to_index[row.item_id], row.rating) for row in user_item_pairs.itertuples()]
 user_buying_records_tensor = torch.tensor([(x[0], x[1], x[2]) for x in user_buying_records])
 embeeded_size = 128
 # Create model, loss function, and optimizer
 user_histories_file = fu.json_transform(os.path.join(cwd, 'yelp/process_user.json'))
 
-model = RecommendationModel(user_histories_file,embeeded_size,len(business_to_index))
+model = RecommendationModel(user_histories_file,embeeded_size,len(item_to_index))
 loss_function = NDCGLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 

@@ -20,14 +20,14 @@ class ReviewDataset(Dataset):
     def __init__(self, df):
         self.reviews = df['text'].tolist()
         self.labels = df['stars'].tolist()
-        self.business_ids = df['business_id'].tolist()
+        self.item_ids = df['item_id'].tolist()
 
     def __getitem__(self, idx):
         review = self.reviews[idx]
-        business_id = self.business_ids[idx]
+        item_id = self.item_ids[idx]
         label = self.labels[idx]
         inputs = tokenizer.encode_plus(
-            f"{business_id} {review}",
+            f"{item_id} {review}",
             None,
             add_special_tokens=True,
             max_length=128,
@@ -50,14 +50,14 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Move the model and optimizer to the device
 model.to(device)
 
-def get_reviews_for_business(business_id, df):
-    return df[df['business_id'] == business_id]['text'].tolist()
+def get_reviews_for_item(item_id, df):
+    return df[df['item_id'] == item_id]['text'].tolist()
 
-def predict_rating(model,business_id, df):
-    comments = get_reviews_for_business(business_id, df)
+def predict_rating(model,item_id, df):
+    comments = get_reviews_for_item(item_id, df)
     df = pd.DataFrame({
         'text': comments,
-        'business_id': [business_id] * len(comments),
+        'item_id': [item_id] * len(comments),
         'stars': [0] * len(comments)  # Dummy labels
     })
     dataset = ReviewDataset(df)
@@ -73,10 +73,10 @@ def predict_rating(model,business_id, df):
             all_predictions.extend(predictions.tolist())
     return sum(all_predictions) / len(all_predictions)
 
-# Prompt the user for a business ID and predict the rating
+# Prompt the user for a item ID and predict the rating
 while True:
-    business_id = input("Enter a business ID or 'q' to quit: ")
-    if business_id.lower() == 'q':
+    item_id = input("Enter a item ID or 'q' to quit: ")
+    if item_id.lower() == 'q':
         break
-    predicted_rating = predict_rating(model,business_id, df)
-    print(f"The predicted rating for business {business_id} is {predicted_rating}")
+    predicted_rating = predict_rating(model,item_id, df)
+    print(f"The predicted rating for item {item_id} is {predicted_rating}")

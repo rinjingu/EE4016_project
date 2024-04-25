@@ -12,7 +12,7 @@ word_to_number = {
 
 counter = 0
 
-with open('yelp/processed_review3.json') as f, open('process_user.json', 'w') as out_f:
+with open('yelp/processed_review3.json') as f, open('Processed_Interaction_History.json', 'w') as out_f:
     for line in tqdm(f, desc="Processing users"):
         # Load each JSON object separately
         user = json.loads(line)
@@ -22,12 +22,12 @@ with open('yelp/processed_review3.json') as f, open('process_user.json', 'w') as
         new_user = {
             'user_id': user_id
         }
-        for star, businesses in user['reviews'].items():
-            for business_id in businesses:
+        for star, items in user['reviews'].items():
+            for item_id in items:
                 # Convert the word number to an integer
                 star_number = word_to_number[star]
 
-                new_user[business_id] = (star_number) 
+                new_user[item_id] = (star_number) 
 
         # Write the new user to the JSON file
         json.dump(new_user, out_f)

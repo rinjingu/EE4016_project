@@ -9,13 +9,13 @@ import torch.nn.functional as F
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 cwd = os.getcwd()
 bussiness_index = AnnoyIndex(128, 'angular')  # 50 is the dimensionality of your item embeddings
-bussiness_index.load('yelp_business.ann')
+bussiness_index.load('yelp_item.ann')
 with open('pkl/user_to_index.pkl', 'rb') as f:
     user_to_index = pickle.load(f)
-with open('pkl/business_to_index.pkl', 'rb') as f:
-    business_to_index = pickle.load(f)
-with open('pkl/index_to_business.pkl', 'rb') as f:
-    index_to_business = pickle.load(f)
+with open('pkl/item_to_index.pkl', 'rb') as f:
+    item_to_index = pickle.load(f)
+with open('pkl/index_to_item.pkl', 'rb') as f:
+    index_to_item = pickle.load(f)
 class RecommendationModel(nn.Module):
     def __init__(self, user_histories, embedded_size, num_items):
         super().__init__()
@@ -50,7 +50,7 @@ class RecommendationModel(nn.Module):
             # Get the most similar items
             if item == 'user_id':
                 continue
-            similar_items = bussiness_index.get_nns_by_vector(self.item_embedding(torch.tensor([business_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)           
+            similar_items = bussiness_index.get_nns_by_vector(self.item_embedding(torch.tensor([item_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)           
             for similar_item, similarity_score in zip(*similar_items):
                 if similar_item in recommendation_scores:
                     recommendation_scores[similar_item] += similarity_score
@@ -59,16 +59,16 @@ class RecommendationModel(nn.Module):
         recommendation_scores = sorted(recommendation_scores.items(), key=lambda x: x[1], reverse=True)
         return recommendation_scores[:num_recommendations]
 
-user_to_index, business_to_index, index_to_business = fu.index_transformer()
+user_to_index, item_to_index, index_to_item = fu.index_transformer()
 user_histories_file = fu.json_transform(os.path.join(cwd, 'yelp/process_user.json'))
 embedded_size = 128
-model = RecommendationModel(user_histories_file, embedded_size, len(business_to_index))
+model = RecommendationModel(user_histories_file, embedded_size, len(item_to_index))
 model.load_state_dict(torch.load(os.path.join(cwd, 'model_epoch_1.pth')))
 model = model.to(device)
 
 user_id = '0VqczoKSmj65LHqfo0jRaQ'
 
 recommendations = model.recommend(user_to_index[user_id])
-for business_id, score in recommendations:
-    business_id = index_to_business[business_id]
-    print(f'Business ID: {business_id}, Score: {score}')
+for item_id, score in recommendations:
+    item_id = index_to_item[item_id]
+    print(f'item ID: {item_id}, Score: {score}')

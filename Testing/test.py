@@ -16,33 +16,18 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 import random
 import json
 
-has_mps = torch.backends.mps.is_built()
-device = "cuda" if torch.cuda.is_available() else "cpu"
 
-cwd = os.getcwd()
-bussiness_index = AnnoyIndex(128, 'angular') 
-bussiness_index.load('ann/yelp_business.ann')
-# Load the mappings
-with open('pkl/user_to_index.pkl', 'rb') as f: 
-    user_to_index = pickle.load(f)
-with open('pkl/business_to_index.pkl', 'rb') as f:
-    business_to_index = pickle.load(f)
-with open('pkl/index_to_business.pkl', 'rb') as f:
-    index_to_business = pickle.load(f)
-
-# Load the tokenizer
-tokenizer = RobertaTokenizer.from_pretrained('distilroberta-base')
 
 class UserItemDataset(Dataset):
-    def __init__(self, user_item_pairs,business_to_index):
+    def __init__(self, user_item_pairs,item_to_index):
         self.user_item_pairs = user_item_pairs
-        self.business_to_index = business_to_index
+        self.item_to_index = item_to_index
     def __len__(self):
         return len(self.user_item_pairs)
 
     def __getitem__(self, idx):
         user, item, rating = self.user_item_pairs[idx]
-        item = self.business_to_index[item]
+        item = self.item_to_index[item]
         return user, item, rating
     
 
@@ -80,14 +65,14 @@ class ReviewDataset(Dataset):
     def __init__(self, df):
         self.reviews = df['text'].tolist()
         self.labels = df['stars'].tolist()
-        self.business_ids = df['business_id'].tolist()
+        self.item_ids = df['item_id'].tolist()
 
     def __getitem__(self, idx):
         review = self.reviews[idx]
-        business_id = self.business_ids[idx]
+        item_id = self.item_ids[idx]
         label = self.labels[idx]
         inputs = tokenizer.encode_plus(
-            f"{business_id} {review}",
+            f"{item_id} {review}",
             None,
             add_special_tokens=True,
             max_length=128,
@@ -104,12 +89,12 @@ class ReviewDataset(Dataset):
     def __len__(self):
         return len(self.reviews)
 
-class UserBusinessModel(nn.Module):
-    def __init__(self, num_users, num_businesses, embedding_size):
+class UseritemModel(nn.Module):
+    def __init__(self, num_users, num_items, embedded_size):
         super().__init__()
-        self.user_embedding = nn.Embedding(num_users, embedding_size)
-        self.business_embedding = nn.Embedding(num_businesses, embedding_size)
-        self.fc1 = nn.Linear(embedding_size * 2, 1024)
+        self.user_embedding = nn.Embedding(num_users, embedded_size)
+        self.item_embedding = nn.Embedding(num_items, embedded_size)
+        self.fc1 = nn.Linear(embedded_size * 2, 1024)
         self.dropout1 = nn.Dropout(0.2)
         self.fc2 = nn.Linear(1024, 512)
         self.dropout2 = nn.Dropout(0.2)
@@ -117,11 +102,11 @@ class UserBusinessModel(nn.Module):
         self.dropout3 = nn.Dropout(0.2)
         self.fc4 = nn.Linear(256, 1)
 
-    def forward(self, users, businesses):
+    def forward(self, users, items):
         user_embedding = self.user_embedding(users)
-        business_embedding = self.business_embedding(businesses)
+        item_embedding = self.item_embedding(items)
  
-        x = torch.cat([user_embedding, business_embedding], dim=1)
+        x = torch.cat([user_embedding, item_embedding], dim=1)
         x = self.dropout1(torch.relu(self.fc1(x)))
         x = self.dropout2(torch.relu(self.fc2(x)))
         x = self.dropout3(torch.relu(self.fc3(x)))
@@ -135,7 +120,7 @@ class UserBusinessModel(nn.Module):
             # Get the most similar items
             if item == 'user_id':
                 continue
-            similar_items = bussiness_index.get_nns_by_vector(self.item_embedding(torch.tensor([business_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)           
+            similar_items = bussiness_index.get_nns_by_vector(self.item_embedding(torch.tensor([item_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)           
             for similar_item, similarity_score in zip(*similar_items):
                 similarity_score *= attention_weight
                 if(similarity_score > 5):
@@ -148,9 +133,9 @@ class UserBusinessModel(nn.Module):
         return recommendation_scores[:num_recommendations]
 
 
-    def get_score(self, business_index, distance):
-        business_embeddings = self.business_embedding(business_index).to(device)
-        x = torch.cat([business_embeddings, distance.view(-1, 1).to(device)], dim=1)
+    def get_score(self, item_index, distance):
+        item_embeddings = self.item_embedding(item_index).to(device)
+        x = torch.cat([item_embeddings, distance.view(-1, 1).to(device)], dim=1)
         self.fc1 = nn.Linear(81, 1024)
         x = self.dropout1(torch.relu(self.fc1(x)))
         x = self.dropout2(torch.relu(self.fc2(x)))
@@ -191,7 +176,7 @@ class RecommendationModel(nn.Module):
             # Get the most similar items
             if item == 'user_id':
                 continue
-            similar_items = bussiness_index.get_nns_by_vector(self.item_embedding(torch.tensor([business_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)           
+            similar_items = bussiness_index.get_nns_by_vector(self.item_embedding(torch.tensor([item_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)           
             for similar_item, similarity_score in zip(*similar_items):
                 similarity_score *= attention_weight
                 if similar_item in recommendation_scores:
@@ -213,25 +198,25 @@ class RecommendationModel(nn.Module):
         score = torch.sigmoid(self.linear4(x))
         return score.squeeze()
 
-class BusinessModel(nn.Module):
+class itemModel(nn.Module):
     def __init__(self, transformer_model, recommendation_model, df):
         super().__init__()
         self.transformer_model = transformer_model
         self.recommendation_model = recommendation_model
         self.df = df
     
-    def forward(self, business_id):
+    def forward(self, item_id):
         # Use the transformer model to predict the rating
-        rating = predict_rating(self.transformer_model,business_id,self.df)
+        rating = predict_rating(self.transformer_model,item_id,self.df)
         rating = torch.tensor(rating)
         # Normalize the rating to get the attention weight
         attention_weight = F.softmax(rating, dim=-1)
         # Use the attention weight as the distance in the recommendation model
-        score = self.recommendation_model.get_score(business_id, attention_weight)
+        score = self.recommendation_model.get_score(item_id, attention_weight)
         return score
 
-    def getscore(self,business_id, attention_weight):
-        score = self.recommendation_model.get_score(business_id, attention_weight)
+    def getscore(self,item_id, attention_weight):
+        score = self.recommendation_model.get_score(item_id, attention_weight)
         return score
     
     def recommend(self, user_id, num_recommendations=20):
@@ -245,11 +230,11 @@ class BusinessModel(nn.Module):
             rating = predict_rating(self.transformer_model,item,self.df)
             # Normalize the rating to get the attention weight
             rating = torch.tensor(rating)  # Convert the list to a tensor
-            attention_weight = rating / 5  # Normalize the rating
+            attention_weight = (rating-1) / 4  # Normalize the rating
             # Use the attention weight as the distance in the recommendation model
             similar_items = self.recommendation_model.recommend(attention_weight,user_id, num_recommendations)
             for similar_item, similarity_score in similar_items:
-                similar_item = index_to_business[similar_item]
+                similar_item = index_to_item[similar_item]
                 similarity_score *= rating
                 if similarity_score >5: #up
                     similarity_score = torch.tensor(5)
@@ -269,65 +254,65 @@ class UserModel(nn.Module):
         self.user_model = user_model
         self.df = df
 
-    def forward(self, business_id):
+    def forward(self, item_id):
         # Use the transformer model to predict the rating
-        rating = predict_rating(self.transformer_model,business_id,self.df)
+        rating = predict_rating(self.transformer_model,item_id,self.df)
         rating = torch.tensor(rating)
         # Normalize the rating to get the attention weight
         attention_weight = F.softmax(rating, dim=-1)
         # Use the attention weight as the distance in the recommendation model
-        score = self.user_model.get_score(business_id, attention_weight)
+        score = self.user_model.get_score(item_id, attention_weight)
         return score
 
-    def getscore(self,user_id,business_id, attention_weight):
-        score = self.user_model.get_score(business_id, attention_weight)
+    def getscore(self,user_id,item_id, attention_weight):
+        score = self.user_model.get_score(item_id, attention_weight)
         return score
     
-    def recommend(self, user_id,user_histories_file, num_recommendations=50):
+    def recommend(self, user_id,user_histories_file, num_recommendations=20):
         user_history = next((history for history in user_histories_file if history['user_id'] == user_id), None)
         if user_history is None:
             print(f'User {user_id} not found in the history.')
             return []
 
         if user_id in user_to_index and user_to_index[user_id] != -1 and user_to_index[user_id] < self.user_model.user_embedding.weight.size(0):
-            user_index = torch.tensor([user_to_index[user_id]] * len(business_to_index), dtype=torch.long)
-            business_indices = torch.tensor(list(business_to_index.values()), dtype=torch.long)
-            rating = self.user_model(user_index, business_indices)
+            user_index = torch.tensor([user_to_index[user_id]] * len(item_to_index), dtype=torch.long)
+            item_indices = torch.tensor(list(item_to_index.values()), dtype=torch.long)
+            rating = self.user_model(user_index, item_indices)
             rating = torch.sigmoid(rating) * 4 + 1  # Convert the ratings to a range of 1-5
             # Use the attention weight as the distance in the recommendation model
             
-            top20_values, top20_indices = torch.topk(rating, 20)
-            top20_recommendations = {}
-            for index, value in zip(top20_indices.detach(), top20_values.detach().cpu().numpy()):
-                attention_weights = predict_rating(self.transformer_model, index_to_business[index.item()], self.df)
+            top_values, top_indices = torch.topk(rating, num_recommendations)
+            top_recommendations = {}
+            for index, value in zip(top_indices.detach(), top_values.detach().cpu().numpy()):
+                attention_weights = predict_rating(self.transformer_model, index_to_item[index.item()], self.df)
                 attention_weight = np.mean(attention_weights)
-                attention_weight = attention_weight / 5
+                attention_weight = (attention_weight -1) / 4
                 
-                top20_recommendations[index_to_business[index.item()]] = value * attention_weight
+                top_recommendations[index_to_item[index.item()]] = value * attention_weight
 
-            top20_recommendations = sorted(top20_recommendations.items(), key=lambda x: x[1], reverse=True)
-            return top20_recommendations
+            top_recommendations = sorted(top_recommendations.items(), key=lambda x: x[1], reverse=True)
+            return top_recommendations
 
 def load_user_item_pairs(address):
     data = fu.json_transform(address)
     user_item_pairs = []
     for user_data in data:
         user_id = user_data['user_id']
-        for business_id, rating in user_data.items():
-            if business_id != 'user_id':
-                user_item_pairs.append((user_id, business_id, rating))
+        for item_id, rating in user_data.items():
+            if item_id != 'user_id':
+                user_item_pairs.append((user_id, item_id, rating))
     return user_item_pairs
 
-def get_reviews_for_business(business_id, df):
-    reviews = df[df['business_id'] == business_id]['text'].tolist()
+def get_reviews_for_item(item_id, df):
+    reviews = df[df['item_id'] == item_id]['text'].tolist()
     return reviews
 
-def predict_rating(model, business_id, df):
+def predict_rating(model, item_id, df):
     attention_weights = []
-    comments = get_reviews_for_business(business_id, df)
+    comments = get_reviews_for_item(item_id, df)
     df1 = pd.DataFrame({
         'text': comments,
-        'business_id': [business_id] * len(comments),
+        'item_id': [item_id] * len(comments),
         'stars': [0] * len(comments)  # Dummy labels
     })
     dataset = ReviewDataset(df1)
@@ -343,52 +328,7 @@ def predict_rating(model, business_id, df):
     return attention_weights
 
 
-# Load the DataFrame from the JSON file
-df = pd.read_json('yelp/processed_review.json',lines=True)
-bussiness_data = pd.read_json('yelp/processed_business.json',lines=True)
 
-# Load the trained model
-transformer_model = RobertaForSequenceClassification.from_pretrained('distilroberta-base', num_labels=5)
-transformer_model.load_state_dict(torch.load('trained_model/trained_model_20240422015913.pth'))
-transformer_model.eval()
-transformer_model.to(device)
-tokenizer = RobertaTokenizer.from_pretrained('distilroberta-base')
-
-
-user_to_index, business_to_index, index_to_business = fu.index_transformer()
-user_histories_file = fu.json_transform(os.path.join(cwd, 'yelp/process_user.json'))
-embedded_size = 128
-embedding_size = 80
-item_based_model = RecommendationModel(user_histories_file, embedded_size, len(business_to_index))
-item_based_model.load_state_dict(torch.load(os.path.join(cwd, 'trained_model/Item-based_model.pth')))
-item_based_model = item_based_model.to(device)
-business_model = BusinessModel(transformer_model, item_based_model,df)
-business_model = business_model.to(device)
-
-user_based_model = UserBusinessModel(len(user_to_index), len(business_to_index), embedding_size)
-user_based_model.load_state_dict(torch.load(os.path.join(cwd, 'trained_model/collab_test1.pth')))
-user_based_model = user_based_model.to(device)
-
-user_model = UserModel(transformer_model, user_based_model,df)
-user_model = user_model.to(device)
-
-# Load mappings
-user_item_pairs = load_user_item_pairs(os.path.join(cwd, 'yelp/process_user.json'))
-
-# Convert the list to a DataFrame
-user_item_pairs_df = pd.DataFrame(user_item_pairs, columns=['user_id', 'business_id', 'rating'])
-
-# Now you can call to_records on the DataFrame
-user_item_pairs_list = [tuple(x) for x in user_item_pairs_df.to_records(index=False)]
-user_to_index = {user: i for i, user in enumerate(set(user_id for user_id, business_id, rating in user_item_pairs_list))}
-business_to_index = {business: i for i, business in enumerate(set(business_id for user_id, business_id, rating in user_item_pairs_list))}
-
-# Load your pretrained model
-# Load data
-dataset = UserItemDataset(user_item_pairs,business_to_index)
-data_loader = DataLoader(dataset, batch_size=48)
-
-user_id = '-L92vRdiCwz6QWjvOtS-zA'
 
 # # Ensure the model is in evaluation mode
 # user_model.eval()
@@ -403,119 +343,147 @@ user_id = '-L92vRdiCwz6QWjvOtS-zA'
 # 
 
 # Ensure the model is in evaluation mode
-# business_model.eval()
+# item_model.eval()
 # # Get recommendations for a user
-# business_recommendations = business_model.recommend(user_to_index[user_id])
+# item_recommendations = item_model.recommend(user_to_index[user_id])
 
 # # Print the recommendations
-# for item, score in business_recommendations:
+# for item, score in item_recommendations:
     
 #     print(f'Item: {item}, Score: {score}')
     
     
-def get_business_score(user_id, business_id, user_model,business_model, transformer_model, df):
+def get_item_score(user_id, item_id, user_model,item_model, transformer_model, df):
     # Use the transformer model to predict the rating
-    rating = predict_rating(transformer_model, business_id, df)
+    rating = predict_rating(transformer_model, item_id, df)
     rating = torch.tensor(rating)
-    # Convert business_id to business_index
-    business_index = business_to_index[business_id]
+    # Convert item_id to item_index
+    item_index = item_to_index[item_id]
     # Use the transformer model to predict the rating
-    predicted_rating = predict_rating(transformer_model, business_id, df)
+    predicted_rating = predict_rating(transformer_model, item_id, df)
     predicted_rating = torch.tensor(predicted_rating)
     # Normalize the predicted rating to get the attention weight
     attention_weight = F.softmax(predicted_rating, dim=-1)
-    business_index = torch.tensor([business_index]).to(device)
+    item_index = torch.tensor([item_index]).to(device)
     # Use the attention weight as the distance in the recommendation model
-    score = (user_model.getscore(user_id, business_index, attention_weight) + business_model.getscore(business_index, attention_weight)) / 2
+    score = (user_model.getscore(user_id, item_index, attention_weight) + item_model.getscore(item_index, attention_weight)) / 2
     score = score.item()
     return score
 
-# Randomly select 100 users
-selected_users = random.sample([user_history['user_id'] for user_history in user_histories_file], min(100, len(user_histories_file)))
+def Loss_Cal(number_of_recommender, user_id=None):
+    if user_id is not None and number_of_recommender == 1:
+        selected_users = [user_id]
+    else:
+        selected_users = random.sample([user_history['user_id'] for user_history in user_histories_file], min(number_of_recommender, len(user_histories_file)))
 
-rmse_values = []
-mae_values = []
-ndcg_values = []
+    rmse_values = []
+    mae_values = []
+    ndcg_values = []
 
-ndcg_loss_fn = NDCGLoss(device)
+    ndcg_loss_fn = NDCGLoss(device)
 
-for user_id in tqdm(selected_users):
-    # Get the user history for the selected user
-    user_history = next((user_history for user_history in user_histories_file if user_history['user_id'] == user_id), None)
-    if user_history is None:
-        continue
-
-    true_ratings_list = []
-    predicted_ratings_list = []
-    print(user_history)
-    # For each business in the user history, predict the score and compare it with the actual rating
-    for business_id, true_rating in user_history.items():
-        if business_id == 'user_id':
+    for user_id in tqdm(selected_users):
+        # Get the user history for the selected user
+        user_history = next((user_history for user_history in user_histories_file if user_history['user_id'] == user_id), None)
+        if user_history is None:
             continue
-        predicted_rating = get_business_score(user_id, business_id, user_model, business_model, transformer_model, df)
-        true_ratings_list.append(true_rating)
-        predicted_ratings_list.append(predicted_rating)
 
-    # Calculate RMSE and MAE
-    rmse = np.sqrt(mean_squared_error(true_ratings_list, predicted_ratings_list))
-    rmse_values.append(rmse)
-    mae = mean_absolute_error(true_ratings_list, predicted_ratings_list)
-    mae_values.append(mae)
-    ndcg_loss = ndcg_loss_fn(np.array([true_ratings_list]), np.array([predicted_ratings_list]))
-    ndcg_values.append(ndcg_loss)
+        true_ratings_list = []
+        predicted_ratings_list = []
+        print(user_history)
+        # For each item in the user history, predict the score and compare it with the actual rating
+        for item_id, true_rating in user_history.items():
+            if item_id == 'user_id':
+                continue
+            predicted_rating = get_item_score(user_id, item_id, user_model, item_model, transformer_model, df)
+            true_ratings_list.append(true_rating)
+            predicted_ratings_list.append(predicted_rating)
 
-# Calculate average RMSE, MAE, and NDCG loss
-average_rmse = np.mean(rmse_values)
-average_mae = np.mean(mae_values)
-average_ndcg_loss = np.mean(ndcg_values)
+        # Calculate RMSE and MAE
+        rmse = np.sqrt(mean_squared_error(true_ratings_list, predicted_ratings_list))
+        rmse_values.append(rmse)
+        mae = mean_absolute_error(true_ratings_list, predicted_ratings_list)
+        mae_values.append(mae)
+        ndcg_loss = ndcg_loss_fn(np.array([true_ratings_list]), np.array([predicted_ratings_list]))
+        ndcg_values.append(ndcg_loss)
 
+    # Calculate average RMSE, MAE, and NDCG loss
+    average_rmse = np.mean(rmse_values)
+    average_mae = np.mean(mae_values)
+    average_ndcg_loss = np.mean(ndcg_values)
+
+    return average_rmse, average_mae, average_ndcg_loss
+
+average_rmse, average_mae, average_ndcg_loss = Loss_Cal(10)
 print(f'Average RMSE: {average_rmse}')
 print(f'Average MAE: {average_mae}')
 print(f'Average NDCG Loss: {average_ndcg_loss}')
 
 
+def get_ratings(selected_user_id,number_of_recommender):
+    predicted_ratings_list = []
+    predicted = []
+    predicted.extend(item_model.recommend(user_to_index[selected_user_id],number_of_recommender))
+    predicted.extend(user_model.recommend(selected_user_id, user_histories_file),number_of_recommender)
+    predicted.sort(key=lambda x: x[1], reverse=True)
+    predicted = predicted[:number_of_recommender/2]
+    return predicted_ratings_list
 
 
-# Randomly select 100 users
-# selected_users = random.sample([user_history['user_id'] for user_history in user_histories_file], min(100, len(user_histories_file)))
-
-# rmse_values = []
-# mae_values = []
-# ndcg_values = []
-
-# ndcg_loss_fn = NDCGLoss(device)
 
 
-# for user_id in tqdm(selected_users):           
-#     true_ratings_list = []
-#     predicted_ratings_list = []
-#     predicted = []
-#     predicted.extend(business_model.recommend(user_to_index[user_id]))
-#     predicted.extend(user_model.recommend(user_id, user_histories_file))
-#     predicted.sort(key=lambda x: x[1], reverse=True)
-#     predicted = predicted[:10]
-#     for item, predicted_ratings in predicted:
-#         matching_rows = bussiness_data[bussiness_data['business_id'] == item]
-#         if not matching_rows.empty:
-#             true_ratings = matching_rows.iloc[0][2]
-#         else:
-#             true_ratings = None
-#         true_ratings_list.append(true_ratings)
-#         predicted_ratings_list.append(predicted_ratings)
 
-#     # Calculate RMSE and MAE
-#     rmse = np.sqrt(mean_squared_error(true_ratings_list, predicted_ratings_list))
-#     rmse_values.append(rmse)
-#     mae = mean_absolute_error(true_ratings_list, predicted_ratings_list)
-#     mae_values.append(mae)
-#     ndcg_loss = ndcg_loss_fn(np.array([true_ratings_list]), np.array([predicted_ratings_list]))
-#     ndcg_values.append(ndcg_loss)
+has_mps = torch.backends.mps.is_built()
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# # Calculate average RMSE, MAE, and NDCG loss
-# average_rmse = np.mean(rmse_values)
-# average_mae = np.mean(mae_values)
-# average_ndcg_loss = np.mean(ndcg_values)
+cwd = os.getcwd()
+bussiness_index = AnnoyIndex(128, 'angular') 
+bussiness_index.load('ann/yelp_item.ann')
+# Load the mappings
+with open('pkl/user_to_index.pkl', 'rb') as f: 
+    user_to_index = pickle.load(f)
+with open('pkl/item_to_index.pkl', 'rb') as f:
+    item_to_index = pickle.load(f)
+with open('pkl/index_to_item.pkl', 'rb') as f:
+    index_to_item = pickle.load(f)
+# Load the DataFrame from the JSON file
+df = pd.read_json('data/processed_review.json',lines=True)
+bussiness_data = pd.read_json('data/processed_item.json',lines=True)
 
-# print(f'Average RMSE: {average_rmse}')
-# print(f'Average MAE: {average_mae}')
-# print(f'Average NDCG Loss: {average_ndcg_loss}')
+# Load the trained model
+tokenizer = RobertaTokenizer.from_pretrained('distilroberta-base')
+user_to_index, item_to_index, index_to_item = fu.index_transformer()
+user_histories_file = fu.json_transform(os.path.join(cwd, 'data/process_user.json'))
+item_embedded_size = 128
+user_embedded_size = 80
+transformer_model = RobertaForSequenceClassification.from_pretrained('distilroberta-base', num_labels=5)
+item_based_model = RecommendationModel(user_histories_file, item_embedded_size, len(item_to_index))
+user_based_model = UseritemModel(len(user_to_index), len(item_to_index), user_embedded_size)
+
+transformer_model.load_state_dict(torch.load('trained_models/trained_model_20240422015913.pth'))
+item_based_model.load_state_dict(torch.load(os.path.join(cwd, 'trained_models/Item-based_model.pth')))
+user_based_model.load_state_dict(torch.load(os.path.join(cwd, 'trained_models/collab_test1.pth')))
+
+
+item_based_model = item_based_model.to(device)
+user_based_model = user_based_model.to(device)
+item_model = itemModel(transformer_model, item_based_model,df)
+user_model = UserModel(transformer_model, user_based_model,df)
+transformer_model.eval().to(device)
+item_model = item_model.eval().to(device)
+user_model = user_model.eval().to(device)
+
+# Load mappings
+user_item_pairs = load_user_item_pairs(os.path.join(cwd, 'data/process_user.json'))
+
+# Convert the list to a DataFrame
+user_item_pairs_df = pd.DataFrame(user_item_pairs, columns=['user_id', 'item_id', 'rating'])
+
+# Now you can call to_records on the DataFrame
+user_item_pairs_list = [tuple(x) for x in user_item_pairs_df.to_records(index=False)]
+user_to_index = {user: i for i, user in enumerate(set(user_id for user_id, _, _ in user_item_pairs_list))}
+item_to_index = {item: i for i, item in enumerate(set(item_id for _, item_id, _ in user_item_pairs_list))}
+# Load your pretrained model
+# Load data
+dataset = UserItemDataset(user_item_pairs,item_to_index)
+data_loader = DataLoader(dataset, batch_size=48)

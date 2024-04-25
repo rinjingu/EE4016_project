@@ -56,8 +56,8 @@ class MLPModel(nn.Module):
         x = self.fc5(x)
         return x
 
-def get_recommendations(model, business_id, id_to_index, index_to_id, top_k=10):
-    item_index = torch.tensor([id_to_index[business_id]], dtype=torch.long)
+def get_recommendations(model, item_id, id_to_index, index_to_id, top_k=10):
+    item_index = torch.tensor([id_to_index[item_id]], dtype=torch.long)
     vector = model(item_index)
     scores = (model(torch.arange(len(id_to_index))) * vector).sum(dim=1)
     top_indices = scores.topk(top_k+1).indices
@@ -69,8 +69,8 @@ if __name__ == "__main__":
         data = [json.loads(line) for line in tqdm(f, desc="Loading data")]
     df = pd.DataFrame(data)
 
-    # Create mappings from business_id to index and vice versa
-    id_to_index = {id: index for index, id in enumerate(df['business_id'])}
+    # Create mappings from item_id to index and vice versa
+    id_to_index = {id: index for index, id in enumerate(df['item_id'])}
     index_to_id = {index: id for id, index in id_to_index.items()}
 
     # Define the model
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     t.build(128)  # 128 trees
 
     # Save the Annoy index to a file
-    t.save('yelp_business.ann')
+    t.save('yelp_item.ann')
     # Query the index for the 10 nearest neighbors of the first item
     nearest_neighbors = t.get_nns_by_item(0, 10)
 
@@ -118,11 +118,11 @@ if __name__ == "__main__":
     print("Nearest neighbors of the first item:", nearest_neighbors)
 
 
-    # Get recommendations for a user-specified business_id
+    # Get recommendations for a user-specified item_id
     while True:
-        business_id = input("Enter a business_id: ")
-        if business_id in id_to_index:
-            recommendations = get_recommendations(model, business_id, id_to_index, index_to_id)
-            print("Recommended businesses:", recommendations)
+        item_id = input("Enter a item_id: ")
+        if item_id in id_to_index:
+            recommendations = get_recommendations(model, item_id, id_to_index, index_to_id)
+            print("Recommended items:", recommendations)
         else:
-            print("Business_id not found. Please try again.")
+            print("item_id not found. Please try again.")
