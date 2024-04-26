@@ -101,6 +101,7 @@ class ItemCollabModel(nn.Module):
         self.dropout3 = nn.Dropout(0.2)
         self.linear4 = nn.Linear(256, 1)
 
+
     def forward(self, similar_item):
         item_indices, distances = similar_item[:, 0].long(), similar_item[:, 1]
         item_embeddings = self.item_embedding(item_indices)
@@ -113,7 +114,7 @@ class ItemCollabModel(nn.Module):
         x = self.dropout3(x)
         return self.linear4(x).squeeze()
 
-    def recommend(self, attention_weight, user_id, num_recommendations=20):
+    def recommend(self,transformer_model,df, attention_weight, user_id, num_recommendations=20):
         user_history = self.user_histories[user_id]
         recommendation_scores = {}
         for item in user_history:
@@ -122,7 +123,10 @@ class ItemCollabModel(nn.Module):
                 continue
             similar_items = bussiness_index.get_nns_by_vector(self.item_embedding(torch.tensor([item_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)           
             for similar_item, similarity_score in zip(*similar_items):
-                similarity_score *= attention_weight
+                item_rating = (predict_rating(transformer_model,index_to_item[similar_item],df)[0]-1)/4
+                item_rating = torch.tensor(item_rating)
+                # Normalize the rating to get the attention weight
+                similarity_score *= attention_weight * item_rating 
                 if similar_item in recommendation_scores:
                     recommendation_scores[similar_item] += similarity_score
                 else:
@@ -151,10 +155,10 @@ class ItemModel(nn.Module):
     
     def forward(self, item_id):
         # Use the transformer model to predict the rating
-        rating = predict_rating(self.transformer_model,item_id,self.df)
-        rating = torch.tensor(rating)
+        item_rating = predict_rating(self.transformer_model,item_id,self.df)
+        item_rating = torch.tensor(item_rating)
         # Normalize the rating to get the attention weight
-        attention_weight = F.softmax(rating, dim=-1)
+        attention_weight = F.softmax(item_rating, dim=-1)
         # Use the attention weight as the distance in the recommendation model
         score = self.recommendation_model.get_score(item_id, attention_weight)
         return score
@@ -176,17 +180,16 @@ class ItemModel(nn.Module):
             rating = torch.tensor(rating)  # Convert the list to a tensor
             attention_weight = (rating-1) / 4  # Normalize the rating
             # Use the attention weight as the distance in the recommendation model
-            similar_items = self.recommendation_model.recommend(attention_weight,user_id, num_recommendations)
+            similar_items = self.recommendation_model.recommend(self.transformer_model,self.df,attention_weight,user_id, num_recommendations)
             for similar_item, similarity_score in similar_items:
                 similar_item = index_to_item[similar_item]
                 similarity_score *= rating
                 if similarity_score >5: #up
                     similarity_score = torch.tensor(5)
-                similarity_score /= (len(user_history)-1)
+                similarity_score = similarity_score.item() / float(len(user_history)-1)
 
                 # Use dict.get() to avoid KeyError
-                recommendation_scores[similar_item] = recommendation_scores.get(similar_item, 0) + similarity_score.item()  # Convert tensor to a Python number
-
+                recommendation_scores[similar_item] = recommendation_scores.get(similar_item, 0) + similarity_score 
         recommendation_scores = sorted(recommendation_scores.items(), key=lambda x: x[1], reverse=True)
 
         return recommendation_scores[:num_recommendations]
@@ -195,8 +198,8 @@ class UserCollabModel(nn.Module):
     def __init__(self, num_users, num_items, embedded_size):
         super().__init__()
         self.user_embedding = nn.Embedding(num_users, embedded_size)
-        self.item_embedding = nn.Embedding(num_items, embedded_size)
-        self.fc1 = nn.Linear(embedded_size * 2, 1024)
+        self.business_embedding = nn.Embedding(num_items, embedded_size)
+        self.fc1 = nn.Linear(160, 1024)
         self.dropout1 = nn.Dropout(0.2)
         self.fc2 = nn.Linear(1024, 512)
         self.dropout2 = nn.Dropout(0.2)
@@ -206,9 +209,11 @@ class UserCollabModel(nn.Module):
 
     def forward(self, users, items):
         user_embedding = self.user_embedding(users)
-        item_embedding = self.item_embedding(items)
+        item_embedding = self.business_embedding(items)
  
         x = torch.cat([user_embedding, item_embedding], dim=1)
+        self.fc_transform = nn.Linear(160, 81)
+        x = self.fc_transform(x)
         x = self.dropout1(torch.relu(self.fc1(x)))
         x = self.dropout2(torch.relu(self.fc2(x)))
         x = self.dropout3(torch.relu(self.fc3(x)))
@@ -222,7 +227,7 @@ class UserCollabModel(nn.Module):
             # Get the most similar items
             if item == 'user_id':
                 continue
-            similar_items = bussiness_index.get_nns_by_vector(self.item_embedding(torch.tensor([item_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)           
+            similar_items = bussiness_index.get_nns_by_vector(self.business_embedding(torch.tensor([item_to_index[item]])).squeeze().detach().numpy(), num_recommendations, include_distances=True)           
             for similar_item, similarity_score in zip(*similar_items):
                 similarity_score *= attention_weight
                 if(similarity_score > 5):
@@ -236,7 +241,7 @@ class UserCollabModel(nn.Module):
 
 
     def get_score(self, item_index, distance):
-        item_embeddings = self.item_embedding(item_index).to(device)
+        item_embeddings = self.business_embedding(item_index).to(device)
         x = torch.cat([item_embeddings, distance.view(-1, 1).to(device)], dim=1)
         self.fc1 = nn.Linear(81, 1024)
         x = self.dropout1(torch.relu(self.fc1(x)))
@@ -292,6 +297,7 @@ class UserModel(nn.Module):
             top_recommendations = sorted(top_recommendations.items(), key=lambda x: x[1], reverse=True)
             return top_recommendations
 
+
 def load_user_item_pairs(address):
     data = fu.json_transform(address)
     user_item_pairs = []
@@ -327,29 +333,6 @@ def predict_rating(model, item_id, df):
     return attention_weights
 
 
-
-
-# # Ensure the model is in evaluation mode
-# user_model.eval()
-# # Get recommendations for a user
-# user_recommendations = user_model.recommend(user_id,user_histories_file)
-
-# # Print the recommendations
-# for item, score in user_recommendations:
-#     print(f'Item: {item}, Score: {score}')
-
-
-# 
-
-# Ensure the model is in evaluation mode
-# item_model.eval()
-# # Get recommendations for a user
-# item_recommendations = item_model.recommend(user_to_index[user_id])
-
-# # Print the recommendations
-# for item, score in item_recommendations:
-    
-#     print(f'Item: {item}, Score: {score}')
     
 # get rating of the user past item record
 def get_item_score(user_id, item_id, user_model,item_model, transformer_model, df):
@@ -417,13 +400,12 @@ def Loss_Cal(number_of_recommender, user_id=None):
 
 # input the user_id and number of recommender need, return the list of the predicted ratings
 def get_ratings(selected_user_id,number_of_recommender):
-    predicted_ratings_list = []
     predicted = []
     predicted.extend(item_model.recommend(user_to_index[selected_user_id],number_of_recommender))
-    predicted.extend(user_model.recommend(selected_user_id, user_histories_file),number_of_recommender)
+    predicted.extend(user_model.recommend(selected_user_id, user_histories_file,number_of_recommender))
     predicted.sort(key=lambda x: x[1], reverse=True)
-    predicted = predicted[:number_of_recommender/2]
-    return predicted_ratings_list
+    predicted = predicted[:number_of_recommender]
+    return predicted
 
 
 
@@ -443,22 +425,22 @@ with open('pkl/item_to_index.pkl', 'rb') as f:
 with open('pkl/index_to_item.pkl', 'rb') as f:
     index_to_item = pickle.load(f)
 # Load the DataFrame from the JSON file
-df = pd.read_json('data/processed_review.json',lines=True)
-bussiness_data = pd.read_json('data/processed_item.json',lines=True)
+df = pd.read_json('data/Processed_Review.json',lines=True)
+bussiness_data = pd.read_json('data/Processed_Item_Data.json',lines=True)
 
 # Load the trained model
 tokenizer = RobertaTokenizer.from_pretrained('distilroberta-base')
 user_to_index, item_to_index, index_to_item = fu.index_transformer()
-user_histories_file = fu.json_transform(os.path.join(cwd, 'data/process_user.json'))
+user_histories_file = fu.json_transform(os.path.join(cwd, 'data/Process_Interact_History.json'))
 item_embedded_size = 128
 user_embedded_size = 80
 transformer_model = RobertaForSequenceClassification.from_pretrained('distilroberta-base', num_labels=5)
 item_based_model = ItemCollabModel(user_histories_file, item_embedded_size, len(item_to_index))
 user_based_model = UserCollabModel(len(user_to_index), len(item_to_index), user_embedded_size)
 
-transformer_model.load_state_dict(torch.load('trained_models/trained_model_20240422015913.pth'))
-item_based_model.load_state_dict(torch.load(os.path.join(cwd, 'trained_models/Item-based_model.pth')))
-user_based_model.load_state_dict(torch.load(os.path.join(cwd, 'trained_models/collab_test1.pth')))
+transformer_model.load_state_dict(torch.load('trained_models/Transformer.pth'))
+item_based_model.load_state_dict(torch.load(os.path.join(cwd, 'trained_models/Item_model.pth')))
+user_based_model.load_state_dict(torch.load(os.path.join(cwd, 'trained_models/User_model.pth')))
 
 
 item_based_model = item_based_model.to(device)
@@ -470,7 +452,7 @@ item_model = item_model.eval().to(device)
 user_model = user_model.eval().to(device)
 
 # Load mappings
-user_item_pairs = load_user_item_pairs(os.path.join(cwd, 'data/process_user.json'))
+user_item_pairs = load_user_item_pairs(os.path.join(cwd, 'data/Process_Interact_History.json'))
 # Convert the list to a DataFrame
 user_item_pairs_df = pd.DataFrame(user_item_pairs, columns=['user_id', 'item_id', 'rating'])
 # Now you can call to_records on the DataFrame
@@ -480,7 +462,7 @@ item_to_index = {item: i for i, item in enumerate(set(item_id for _, item_id, _ 
 
 
 #testcase for the function
-average_rmse, average_mae, average_ndcg_loss = Loss_Cal(10)
+average_rmse, average_mae, average_ndcg_loss = Loss_Cal(1)
 print(f'Average RMSE: {average_rmse}')
 print(f'Average MAE: {average_mae}')
 print(f'Average NDCG Loss: {average_ndcg_loss}')
@@ -492,4 +474,5 @@ print(f'Average MAE: {average_mae}')
 print(f'Average NDCG Loss: {average_ndcg_loss}')
 
 predicted_ratings = get_ratings(user_id, 10)
-print(predicted_ratings)
+for rating in predicted_ratings:
+    print(f'Item ID: {rating[0]}, Predicted Rating: {rating[1]}')
